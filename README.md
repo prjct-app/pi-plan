@@ -80,7 +80,7 @@ npm test
 npm run check:package
 ```
 
-Pi loads the TypeScript entry point directly; no build step is required. To try this checkout for one run, use `pi -e .`. Tests use isolated temporary state and do not call model APIs. See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution rules and [CHANGELOG.md](CHANGELOG.md) for release notes.
+Pi loads the TypeScript entry point directly; no build step is required. To try this checkout for one run, use `pi -e .`. Tests use isolated temporary state and do not call model APIs. See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution rules, [Automatic releases](docs/releases.md) for publishing, and [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## License
 
