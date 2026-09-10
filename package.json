@@ -1,6 +1,6 @@
 {
   "name": "@prjct.app/pi-plan",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Read-only planning with an approval step and tracked execution in Pi.",
   "type": "module",
   "keywords": [
@@ -42,11 +42,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/prjct-app/pi-plan-mode.git"
+    "url": "git+https://github.com/prjct-app/pi-plan.git"
   },
-  "homepage": "https://github.com/prjct-app/pi-plan-mode#readme",
+  "homepage": "https://github.com/prjct-app/pi-plan#readme",
   "bugs": {
-    "url": "https://github.com/prjct-app/pi-plan-mode/issues"
+    "url": "https://github.com/prjct-app/pi-plan/issues"
   },
   "publishConfig": {
     "access": "public"
