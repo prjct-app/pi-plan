@@ -35,7 +35,7 @@ Third-party runtime dependencies belong in `dependencies`. Companion extensions 
 
 ## Public interfaces
 
-Uses documented tool selection, `tool_call`, commands, shortcuts, flags, `appendEntry()`, `pi.events`, and status/widget APIs.
+Uses documented tool selection, `tool_call`, commands, shortcuts, flags, `appendEntry()`, `pi.events`, status/widget APIs, custom message and entry renderers (`registerMessageRenderer()`, `registerEntryRenderer()`), and documented TUI components (`SelectList`, `DynamicBorder`, `Text`, `Container`) from `@earendil-works/pi-tui` and `@earendil-works/pi-coding-agent`. Plan progress records are display-only entries that never enter the model context; only the execution kickoff instruction does.
 
 ## Published contents
 
