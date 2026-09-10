@@ -43,7 +43,6 @@ const PLAN_MODE_DISABLED_TOOLS = new Set<string>(["edit", "write"]);
 // Custom message types that carry instructions. They are only relevant while
 // their mode is active and are filtered out of the model context afterwards.
 const PLAN_INSTRUCTION_TYPE = "plan-mode-context";
-const EXECUTION_INSTRUCTION_TYPES = new Set<string>(["plan-execution-context", "plan-mode-execute"]);
 
 interface PlanModeState {
 	enabled: boolean;
@@ -89,22 +88,42 @@ Rules:
 - No filler steps such as "run tests" or "update docs" unless the user asked; the Verify section covers validation.
 - Keep each step to one line; put file lists or notes as indented sub-bullets under its step.`;
 
-function executionPrompt(todos: TodoItem[], verify: string | undefined): string {
-	const stepList = todos.map((t) => `${t.step}. ${t.text}`).join("\n");
-	const first = todos.find((t) => !t.completed);
+function executionRules(verify: string | undefined): string {
 	const verification = verify
 		? `When every step is done, verify with: ${verify} — and report the actual result.`
 		: "When every step is done, run the project's verification commands and report the actual result.";
+	return `Rules:
+- If a step is blocked, explain why and continue with the next unblocked step.
+- Include a [DONE:n] tag in your response only after step n is actually applied.
+- ${verification}`;
+}
+
+// Kickoff message: the full approved plan, sent once when execution starts.
+function executionKickoffPrompt(todos: TodoItem[], verify: string | undefined): string {
+	const stepList = todos.map((t) => `${t.step}. ${t.text}`).join("\n");
+	const first = todos.find((t) => !t.completed);
 	return `[EXECUTING PLAN - Full tool access restored]
 
 Approved steps:
 ${stepList}
 
-Rules:
-- Complete steps in order, starting with step ${first?.step ?? 1}${first ? `: ${first.text}` : ""}.
-- If a step is blocked, explain why and continue with the next unblocked step.
-- Include a [DONE:n] tag in your response only after step n is actually applied.
-- ${verification}`;
+Complete the steps in order, starting with step ${first?.step ?? 1}${first ? `: ${first.text}` : ""}.
+${executionRules(verify)}`;
+}
+
+// Per-start injection: progress plus only the remaining steps. Completed
+// steps are already visible in the transcript and would be stale noise.
+function executionContextPrompt(todos: TodoItem[], verify: string | undefined): string {
+	const doneCount = todos.filter((t) => t.completed).length;
+	const remaining = todos.filter((t) => !t.completed);
+	const stepList = remaining.map((t) => `${t.step}. ${t.text}`).join("\n");
+	return `[EXECUTING PLAN - Full tool access restored]
+
+Progress: ${doneCount}/${todos.length} steps complete.
+Remaining steps:
+${stepList}
+
+${executionRules(verify)}`;
 }
 
 // Type guard for assistant messages
@@ -394,11 +413,11 @@ export function installPlan(pi: ExtensionAPI): void {
 		handler: async (ctx) => togglePlanMode(ctx),
 	});
 
-	pi.registerMessageRenderer<PlanListDetails>("plan-todo-list", (message, { expanded }, theme) =>
-		planListView(message.details, expanded, theme),
+	pi.registerEntryRenderer<PlanListDetails>("plan-todo-list", (entry, { expanded }, theme) =>
+		planListView(entry.data, expanded, theme),
 	);
-	pi.registerMessageRenderer<PlanListDetails>("plan-complete", (message, { expanded }, theme) =>
-		planCompleteView(message.details, expanded, theme),
+	pi.registerEntryRenderer<PlanListDetails>("plan-complete", (entry, { expanded }, theme) =>
+		planCompleteView(entry.data, expanded, theme),
 	);
 	pi.registerMessageRenderer<PlanListDetails>("plan-mode-execute", (message, { expanded }, theme) =>
 		planExecuteView(message.details, expanded, theme),
@@ -428,28 +447,42 @@ export function installPlan(pi: ExtensionAPI): void {
 	});
 
 	// Filter stale instruction messages so old mode prompts never accumulate
-	// in the model context. Display messages (plan list, completion) stay.
-	pi.on("context", async (event) => ({
-		messages: event.messages.filter((m) => {
-			const msg = m as AgentMessage & { customType?: string };
-			if (msg.customType === PLAN_INSTRUCTION_TYPE) return planModeEnabled;
-			if (msg.customType && EXECUTION_INSTRUCTION_TYPES.has(msg.customType)) return executionMode;
-			if (msg.role !== "user") return true;
+	// in the model context. Each mode keeps only its LATEST injected copy;
+	// older duplicates are dropped. Display entries (plan list, completion)
+	// live outside the LLM context entirely (appendEntry, not sendMessage).
+	pi.on("context", async (event) => {
+		const messages = event.messages;
+		let lastPlanInstruction = -1;
+		let lastExecutionInstruction = -1;
+		messages.forEach((m, i) => {
+			const customType = (m as { customType?: string }).customType;
+			if (customType === PLAN_INSTRUCTION_TYPE) lastPlanInstruction = i;
+			if (customType === "plan-execution-context") lastExecutionInstruction = i;
+		});
 
-			// Legacy sessions stored the plan-mode prompt as plain user text.
-			const content = msg.content;
-			if (typeof content === "string") {
-				return planModeEnabled || !content.includes("[PLAN MODE ACTIVE]");
-			}
-			if (Array.isArray(content)) {
-				return (
-					planModeEnabled ||
-					!content.some((c) => c.type === "text" && (c as TextContent).text?.includes("[PLAN MODE ACTIVE]"))
-				);
-			}
-			return true;
-		}),
-	}));
+		return {
+			messages: messages.filter((m, i) => {
+				const msg = m as AgentMessage & { customType?: string };
+				if (msg.customType === PLAN_INSTRUCTION_TYPE) return planModeEnabled && i === lastPlanInstruction;
+				if (msg.customType === "plan-execution-context") return executionMode && i === lastExecutionInstruction;
+				if (msg.customType === "plan-mode-execute") return executionMode;
+				if (msg.role !== "user") return true;
+
+				// Legacy sessions stored the plan-mode prompt as plain user text.
+				const content = msg.content;
+				if (typeof content === "string") {
+					return planModeEnabled || !content.includes("[PLAN MODE ACTIVE]");
+				}
+				if (Array.isArray(content)) {
+					return (
+						planModeEnabled ||
+						!content.some((c) => c.type === "text" && (c as TextContent).text?.includes("[PLAN MODE ACTIVE]"))
+					);
+				}
+				return true;
+			}),
+		};
+	});
 
 	// Inject plan/execution context before agent starts
 	pi.on("before_agent_start", async () => {
@@ -467,7 +500,7 @@ export function installPlan(pi: ExtensionAPI): void {
 			return {
 				message: {
 					customType: "plan-execution-context",
-					content: executionPrompt(todoItems, planVerify),
+					content: executionContextPrompt(todoItems, planVerify),
 					display: false,
 				},
 			};
@@ -491,17 +524,11 @@ export function installPlan(pi: ExtensionAPI): void {
 		// Check if execution is complete
 		if (executionMode && todoItems.length > 0) {
 			if (todoItems.every((t) => t.completed)) {
-				pi.sendMessage(
-					{
-						customType: "plan-complete",
-						content: `**Plan complete** ✓ — ${todoItems.length}/${todoItems.length} steps${
-							planVerify ? `\nVerified with: ${planVerify}` : ""
-						}`,
-						display: true,
-						details: { steps: todoItems, verify: planVerify } satisfies PlanListDetails,
-					},
-					{ triggerTurn: false },
-				);
+				// Display-only record; kept out of the LLM context on purpose.
+				pi.appendEntry("plan-complete", {
+					steps: todoItems,
+					verify: planVerify,
+				} satisfies PlanListDetails);
 				executionMode = false;
 				todoItems = [];
 				planVerify = undefined;
@@ -532,7 +559,6 @@ export function installPlan(pi: ExtensionAPI): void {
 
 		if (choice === "execute") {
 			const details: PlanListDetails = { steps: todoItems, verify: planVerify };
-			const todoListText = todoItems.map((t) => `${t.step}. ☐ ${t.text}`).join("\n");
 
 			planModeEnabled = false;
 			executionMode = true;
@@ -540,19 +566,13 @@ export function installPlan(pi: ExtensionAPI): void {
 			updateStatus(ctx);
 			persistState();
 
-			pi.sendMessage(
-				{
-					customType: "plan-todo-list",
-					content: `**Plan Steps (${todoItems.length}):**\n\n${todoListText}`,
-					display: true,
-					details,
-				},
-				{ deliverAs: "followUp" },
-			);
+			// The step list is a display-only entry; only the kickoff instruction
+			// enters the LLM context.
+			pi.appendEntry("plan-todo-list", details);
 			pi.sendMessage(
 				{
 					customType: "plan-mode-execute",
-					content: executionPrompt(todoItems, planVerify),
+					content: executionKickoffPrompt(todoItems, planVerify),
 					display: true,
 					details,
 				},
@@ -561,18 +581,7 @@ export function installPlan(pi: ExtensionAPI): void {
 		} else if (choice === "refine") {
 			const refinement = await ctx.ui.editor("Refine the plan:", "");
 			if (refinement?.trim()) {
-				const details: PlanListDetails = { steps: todoItems, verify: planVerify };
-				pi.sendMessage(
-					{
-						customType: "plan-todo-list",
-						content: `**Plan Steps (${todoItems.length}):**\n\n${todoItems
-							.map((t) => `${t.step}. ☐ ${t.text}`)
-							.join("\n")}`,
-						display: true,
-						details,
-					},
-					{ deliverAs: "followUp" },
-				);
+				pi.appendEntry("plan-todo-list", { steps: todoItems, verify: planVerify } satisfies PlanListDetails);
 				pi.sendUserMessage(refinement.trim(), { deliverAs: "followUp" });
 			}
 		} else if (choice === "discard") {

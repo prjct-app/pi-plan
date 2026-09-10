@@ -65,7 +65,7 @@ If `/work` is unknown, install Pi Workflows too. If `/todos` is empty, ask for n
 
 ## Package and API documentation
 
-Uses documented tool selection, `tool_call`, commands, shortcuts, flags, `appendEntry()`, `pi.events`, status/widget APIs, custom message renderers, and documented TUI components (`SelectList`, `DynamicBorder`, `Text`, `Container`).
+Uses documented tool selection, `tool_call`, commands, shortcuts, flags, `appendEntry()`, `pi.events`, status/widget APIs, custom message and entry renderers, and documented TUI components (`SelectList`, `DynamicBorder`, `Text`, `Container`). Plan progress records are display-only entries that never enter the model context; only the execution kickoff instruction does.
 
 See [Package structure and compatibility](docs/package.md) for the manifest, dependency policy, shipped resources, and official references. This package follows the [official Pi package guide](https://github.com/earendil-works/pi/blob/v0.85.1/packages/coding-agent/docs/packages.md) and [extension API guide](https://github.com/earendil-works/pi/blob/v0.85.1/packages/coding-agent/docs/extensions.md) for the tested version.
 

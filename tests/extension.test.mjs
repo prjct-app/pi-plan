@@ -118,9 +118,9 @@ test('a numbered plan becomes tracked execution only after dialog approval', asy
   assert.ok(h.widgets.has('plan-todos'));
   assert.ok(h.activeTools().includes('edit'));
 
-  const listMessage = h.messages.find((m) => m.message.customType === 'plan-todo-list');
-  assert.equal(listMessage.message.details.steps.length, 2);
-  assert.equal(listMessage.message.details.verify, 'npm test');
+  const listEntry = h.entries.find((e) => e.customType === 'plan-todo-list');
+  assert.equal(listEntry.data.steps.length, 2);
+  assert.equal(listEntry.data.verify, 'npm test');
 
   const execMessage = h.messages.at(-1);
   assert.equal(execMessage.message.customType, 'plan-mode-execute');
@@ -147,9 +147,9 @@ test('completing every step sends a plan-complete message with details', async (
   await h.emit('turn_end', { message: { role: 'assistant', content: [{ type: 'text', text: '[DONE:1] [DONE:2]' }] } });
   await h.emit('agent_end', { messages: [] });
 
-  const complete = h.messages.find((m) => m.message.customType === 'plan-complete');
-  assert.match(complete.message.content, /Plan complete/);
-  assert.equal(complete.message.details.steps.every((s) => s.completed), true);
+  const complete = h.entries.find((e) => e.customType === 'plan-complete');
+  assert.equal(complete.data.steps.every((s) => s.completed), true);
+  assert.equal(h.messages.some((m) => m.message.customType === 'plan-complete'), false);
   assert.equal(h.statuses.has('plan-mode'), false);
   assert.equal(h.widgets.has('plan-todos'), false);
 });
@@ -196,19 +196,22 @@ test('persisted plan state restores on session start and clears UI on shutdown',
   assert.equal(resumed.widgets.has('plan-todos'), false);
 });
 
-test('context filtering keeps only instructions for the active mode', async () => {
+test('context filtering keeps only the latest instruction copy for the active mode', async () => {
   const h = harness();
-  const planMsg = { role: 'user', customType: 'plan-mode-context', content: 'plan' };
+  const olderPlan = { role: 'user', customType: 'plan-mode-context', content: 'plan v1' };
+  const newerPlan = { role: 'user', customType: 'plan-mode-context', content: 'plan v2' };
   const execMsg = { role: 'user', customType: 'plan-execution-context', content: 'exec' };
   const kickoff = { role: 'user', customType: 'plan-mode-execute', content: 'kickoff' };
   const normal = { role: 'user', content: 'hello' };
 
-  const filter = async () => (await h.emit('context', { messages: [planMsg, execMsg, kickoff, normal] })).messages;
+  const filter = async () => (await h.emit('context', { messages: [olderPlan, execMsg, kickoff, newerPlan, normal] })).messages;
 
+  // Idle: instruction messages never reach the model.
   assert.deepEqual((await filter()).map((m) => m.content), ['hello']);
 
+  // Planning: only the newest plan instruction survives; execution leftovers drop.
   await h.run('plan');
-  assert.deepEqual((await filter()).map((m) => m.content), ['plan', 'hello']);
+  assert.deepEqual((await filter()).map((m) => m.content), ['plan v2', 'hello']);
 });
 
 test('/todos notifies when empty and opens a dialog with steps otherwise', async () => {
@@ -230,12 +233,11 @@ test('plan-todo-list renderer shows a collapsed summary and expanded steps', asy
   const h = harness();
   const renderer = h.renderers.get('plan-todo-list');
   const details = { steps: [{ step: 1, text: 'Inspect the code', completed: false }], verify: 'npm test' };
-  const message = { customType: 'plan-todo-list', content: '', display: true, details };
 
-  const collapsedView = renderer(message, { expanded: false }, theme);
+  const collapsedView = renderer({ data: details }, { expanded: false }, theme);
   assert.match(collapsedView.render(80)[0], /▸ Plan · 1 step · Ctrl\+O details/);
 
-  const expandedView = renderer(message, { expanded: true }, theme);
+  const expandedView = renderer({ data: details }, { expanded: true }, theme);
   const lines = expandedView.render(80).join('\n');
   assert.match(lines, /1\. ○ Inspect the code/);
   assert.match(lines, /Verify: npm test/);
@@ -246,9 +248,23 @@ test('plan-complete and plan-mode-execute renderers summarize and expand', () =>
   const details = { steps: [{ step: 1, text: 'Inspect the code', completed: true }] };
 
   const complete = h.renderers.get('plan-complete');
-  assert.match(complete({ details }, { expanded: false }, theme).render(80)[0], /▸ Plan complete ✓ · 1\/1/);
-  assert.match(complete({ details }, { expanded: true }, theme).render(80).join('\n'), /✓ Inspect the code/);
+  assert.match(complete({ data: details }, { expanded: false }, theme).render(80)[0], /▸ Plan complete ✓ · 1\/1/);
+  assert.match(complete({ data: details }, { expanded: true }, theme).render(80).join('\n'), /✓ Inspect the code/);
 
   const execute = h.renderers.get('plan-mode-execute');
   assert.match(execute({ details }, { expanded: false }, theme).render(80)[0], /▸ Execute plan/);
+});
+
+test('the execution context injection lists only remaining steps', async () => {
+  const h = harness();
+  await h.run('plan');
+  await h.emit('agent_end', {
+    messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Plan:\n1. Inspect the code\n2. Run tests' }] }],
+  });
+  await h.emit('turn_end', { message: { role: 'assistant', content: [{ type: 'text', text: '[DONE:1]' }] } });
+
+  const injection = await h.emit('before_agent_start');
+  assert.match(injection.message.content, /Progress: 1\/2 steps complete/);
+  assert.match(injection.message.content, /2\. Run tests/);
+  assert.doesNotMatch(injection.message.content, /1\. Inspect the code/);
 });
