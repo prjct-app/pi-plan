@@ -1,6 +1,6 @@
 # pi-plan
 
-[![pi-plan — extension for PI Agent](https://raw.githubusercontent.com/prjct-app/pi-plan-mode/main/docs/cover.png)](https://pi.dev)
+[![pi-plan — extension for PI Agent](https://raw.githubusercontent.com/prjct-app/pi-image-preview/main/docs/covers/pi-plan.png)](https://pi.dev)
 
 Read-only planning with an approval step and tracked execution in Pi.
 
@@ -46,7 +46,7 @@ pi remove npm:@prjct.app/pi-plan
 
 Use `pi config` to enable or disable individual resources. Use `pi config -l` for project settings and add `-l` to removal when you installed locally.
 
-To pin version 0.1.1, use `pi install npm:@prjct.app/pi-plan@0.1.1`. Pi skips pinned npm versions during package updates. For a Git installation, update or remove using the same `git:github.com/prjct-app/pi-plan-mode` source instead of the npm source.
+To pin version 0.1.2, use `pi install npm:@prjct.app/pi-plan@0.1.2`. Pi skips pinned npm versions during package updates. For a Git installation, update or remove using the same `git:github.com/prjct-app/pi-plan-mode` source instead of the npm source.
 
 When switching from GitHub to npm, remove the Git installation first, then install the npm package and restart Pi.
 
