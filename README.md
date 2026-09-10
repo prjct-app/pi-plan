@@ -2,7 +2,7 @@
 
 [![pi-plan — extension for PI Agent](https://raw.githubusercontent.com/prjct-app/pi-clipboard/main/docs/covers/pi-plan.png)](https://pi.dev)
 
-Read-only planning with an approval step and tracked execution in Pi.
+Plan before editing in PI Agent with read-only tool restrictions, an approval step, and task progress tracking.
 
 `@prjct.app/pi-plan` · Planning commands and progress UI; one extension.
 
