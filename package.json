@@ -1,15 +1,29 @@
 {
-  "name": "@prjct-app/pi-plan-mode",
+  "name": "@prjct.app/pi-plan",
   "version": "0.1.0",
-  "description": "Read-only planning and tracked execution mode for the Pi coding agent",
+  "description": "Read-only planning with an approval step and tracked execution in Pi.",
   "type": "module",
-  "keywords": ["pi-package", "pi", "planning", "workflow", "terminal"],
-  "pi": { "extensions": ["./index.ts"] },
+  "keywords": [
+    "pi-package",
+    "pi",
+    "plan",
+    "planning",
+    "workflow",
+    "terminal"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.mjs"
+    "test": "node --import tsx --test tests/*.test.mjs",
+    "check:package": "npm pack --dry-run --ignore-scripts"
   },
-  "engines": { "node": ">=22.19.0" },
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "*",
     "@earendil-works/pi-ai": "*",
@@ -26,9 +40,26 @@
     "typescript": "^5.9.3"
   },
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/prjct-app/pi-plan-mode.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/prjct-app/pi-plan-mode.git"
+  },
   "homepage": "https://github.com/prjct-app/pi-plan-mode#readme",
-  "bugs": { "url": "https://github.com/prjct-app/pi-plan-mode/issues" },
-  "publishConfig": { "access": "public" },
-  "files": ["index.ts", "src", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "licenses"]
+  "bugs": {
+    "url": "https://github.com/prjct-app/pi-plan-mode/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "index.ts",
+    "src",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "licenses",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+    "docs/package.md"
+  ]
 }
