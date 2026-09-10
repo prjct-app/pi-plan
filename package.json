@@ -1,20 +1,26 @@
 {
   "name": "@prjct.app/pi-plan",
   "version": "0.1.3",
-  "description": "Read-only planning with an approval step and tracked execution in Pi.",
+  "description": "Plan before editing in PI Agent with read-only tool restrictions, an approval step, and task progress tracking.",
   "type": "module",
   "keywords": [
     "pi-package",
     "pi",
-    "plan",
+    "pi-agent",
+    "pi-coding-agent",
+    "pi-extension",
+    "ai-coding",
+    "developer-tools",
     "planning",
-    "workflow",
-    "terminal"
+    "plan-mode",
+    "task-management",
+    "human-in-the-loop"
   ],
   "pi": {
     "extensions": [
       "./index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/prjct-app/pi-clipboard/main/docs/covers/pi-plan.png"
   },
   "scripts": {
     "check": "tsc --noEmit",
