@@ -2,6 +2,8 @@
 
 This 40-second product film introduces pi-plan for PI Agent developers. It follows the package's monochrome cover identity and demonstrates read-only exploration, structured planning, human review, and tracked execution.
 
+[![Watch the pi-plan promotional demo](https://raw.githubusercontent.com/prjct-app/pi-plan/main/media/pi-plan-demo/poster.png)](https://github.com/prjct-app/pi-plan/raw/refs/heads/main/media/pi-plan-demo/pi-plan-demo.mp4)
+
 [Watch or download the MP4](pi-plan-demo.mp4)
 
 ## Media details
