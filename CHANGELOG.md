@@ -1,3 +1,9 @@
+## [0.2.0](https://github.com/prjct-app/pi-plan/compare/v0.1.3...v0.2.0) (2026-09-10)
+
+### Features
+
+* richer plan TUI, structured planning, and hardened review flow ([582411f](https://github.com/prjct-app/pi-plan/commit/582411f6ab21e45f2d49858629e066b6efee5853))
+
 ## 0.1.3
 
 - Clarify the package description and add focused discovery keywords.
