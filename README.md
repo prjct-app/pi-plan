@@ -24,10 +24,19 @@ For project-only installation, add `-l`: `pi install -l npm:@prjct.app/pi-plan`.
 | --- | --- |
 | `/plan` | Toggle planning mode |
 | `Ctrl+Alt+P` | Toggle planning mode from the keyboard |
-| `/todos` | Show the current plan's steps |
+| `/todos` | Open the current plan dialog with steps, progress, and verification |
 | `pi --plan` | Start with planning enabled after the extension is installed |
 
-Run `/plan`, then ask Pi to investigate a concrete task. Numbered steps under a `Plan:` heading become a progress list. Choose whether to execute when prompted. During execution, `[DONE:n]` markers update completed steps.
+Run `/plan`, then ask Pi to investigate a concrete task. The planner answers with a **Goal**, a short **Approach**, numbered steps under a `Plan:` heading that reference real files, a **Verify** section with the exact validation commands, and any **Risks**.
+
+When a plan is ready, a review dialog offers four actions:
+
+- **Execute the plan** — restore full tools and track step progress.
+- **Refine the plan** — send feedback and keep planning.
+- **Stay in plan mode** — keep read-only exploration.
+- **Discard the plan** — exit plan mode and drop the steps.
+
+During execution, a progress widget shows a completion bar, the current step, and the Verify command; `[DONE:n]` markers update completed steps, the footer shows `▸ plan n/total`, and the transcript renders the plan, kickoff, and completion with collapsed summaries expandable via `Ctrl+O`. After the final step, Pi runs the Verify commands and reports the result.
 
 Planning disables the managed `edit` and `write` tools and checks Bash calls against a read-only allowlist. Other custom tools and external processes can retain write capabilities. Plan mode is a workflow policy, not a security sandbox.
 
@@ -46,7 +55,7 @@ pi remove npm:@prjct.app/pi-plan
 
 Use `pi config` to enable or disable individual resources. Use `pi config -l` for project settings and add `-l` to removal when you installed locally.
 
-To pin version 0.1.3, use `pi install npm:@prjct.app/pi-plan@0.1.3`. Pi skips pinned npm versions during package updates. For a Git installation, update or remove using the same `git:github.com/prjct-app/pi-plan` source instead of the npm source.
+To pin version 0.2.0, use `pi install npm:@prjct.app/pi-plan@0.2.0`. Pi skips pinned npm versions during package updates. For a Git installation, update or remove using the same `git:github.com/prjct-app/pi-plan` source instead of the npm source.
 
 When switching from GitHub to npm, remove the Git installation first, then install the npm package and restart Pi.
 
@@ -56,7 +65,7 @@ If `/work` is unknown, install Pi Workflows too. If `/todos` is empty, ask for n
 
 ## Package and API documentation
 
-Uses documented tool selection, `tool_call`, commands, shortcuts, flags, `appendEntry()`, `pi.events`, and status/widget APIs.
+Uses documented tool selection, `tool_call`, commands, shortcuts, flags, `appendEntry()`, `pi.events`, status/widget APIs, custom message renderers, and documented TUI components (`SelectList`, `DynamicBorder`, `Text`, `Container`).
 
 See [Package structure and compatibility](docs/package.md) for the manifest, dependency policy, shipped resources, and official references. This package follows the [official Pi package guide](https://github.com/earendil-works/pi/blob/v0.85.1/packages/coding-agent/docs/packages.md) and [extension API guide](https://github.com/earendil-works/pi/blob/v0.85.1/packages/coding-agent/docs/extensions.md) for the tested version.
 
