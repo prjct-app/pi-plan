@@ -6,6 +6,12 @@ Plan before editing in PI Agent with read-only tool restrictions, an approval st
 
 `@prjct.app/pi-plan` · Planning commands and progress UI; one extension.
 
+## Demo
+
+[![Watch the pi-plan promotional demo](media/pi-plan-demo/poster.png)](https://github.com/prjct-app/pi-plan/raw/refs/heads/main/media/pi-plan-demo/pi-plan-demo.mp4)
+
+[Watch or download the 40-second demo](https://github.com/prjct-app/pi-plan/raw/refs/heads/main/media/pi-plan-demo/pi-plan-demo.mp4). It shows read-only exploration, structured planning, human review, and tracked execution in PI Agent. The film follows the package's monochrome cover identity and uses an original instrumental soundtrack with no voice-over or external samples.
+
 ## Install
 
 Requires Pi installed separately and Node.js **22.19 or later**. Compatibility is tested with **Pi 0.85.1**; newer versions are not yet verified. This is an independent community package.
