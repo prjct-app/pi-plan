@@ -66,6 +66,7 @@
     "licenses",
     "CONTRIBUTING.md",
     "CHANGELOG.md",
-    "docs/package.md"
+    "docs/package.md",
+    "docs/releases.md"
   ]
 }
