@@ -25,7 +25,8 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.mjs",
-    "check:package": "npm pack --dry-run --ignore-scripts"
+    "check:package": "npm pack --dry-run --ignore-scripts",
+    "build:pi": "node scripts/build-pi.mjs"
   },
   "engines": {
     "node": ">=22.19.0"
@@ -42,6 +43,7 @@
     "@earendil-works/pi-coding-agent": "0.85.1",
     "@earendil-works/pi-tui": "0.85.1",
     "@types/node": "^22.19.0",
+    "esbuild": "^0.28.1",
     "tsx": "^4.20.0",
     "typescript": "^5.9.3"
   },
