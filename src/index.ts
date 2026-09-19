@@ -16,12 +16,12 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
+import { SYMBOL, openPanel, row, setMode } from "@prjct.app/pi-tui-kit";
 import { DynamicBorder, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
 	Container,
 	Key,
-	matchesKey,
 	SelectList,
 	type SelectItem,
 	Text,
@@ -33,7 +33,6 @@ import {
 	extractVerification,
 	isSafeCommand,
 	markCompletedSteps,
-	progressBar,
 	type TodoItem,
 } from "./utils.ts";
 
@@ -140,15 +139,6 @@ function getTextContent(message: AssistantMessage): string {
 }
 
 // Collapsed one-line transcript view (pi-team pattern).
-function collapsed(text: string): Component {
-	return {
-		invalidate() {},
-		render(width: number) {
-			return [truncateToWidth(text, width)];
-		},
-	};
-}
-
 function formatStep(item: TodoItem, theme: Theme, current: TodoItem | undefined): string {
 	if (item.completed) {
 		return theme.fg("success", "✓ ") + theme.fg("muted", theme.strikethrough(item.text));
@@ -159,35 +149,42 @@ function formatStep(item: TodoItem, theme: Theme, current: TodoItem | undefined)
 	return theme.fg("dim", "○ ") + theme.fg("muted", item.text);
 }
 
+/** Collapsed: one row in the shared grammar. Expanded: the row, then the steps. */
+function planRow(theme: Theme, symbol: string, tone: "accent" | "success" | "muted", target: string, meta: string, body: string[], expanded: boolean): Component {
+	const head = row(theme, { symbol, tone, verb: "PLAN", target, meta });
+	if (!expanded || !body.length) return head;
+	const container = new Container();
+	container.addChild(head);
+	container.addChild(new Text(body.join("\n"), 2, 0));
+	return container;
+}
+
+const stepCount = (steps: readonly TodoItem[]): string => `${steps.length} step${steps.length === 1 ? "" : "s"}`;
+
 function planListView(details: PlanListDetails | undefined, expanded: boolean, theme: Theme): Component {
 	const steps = details?.steps ?? [];
-	const heading = `▸ Plan · ${steps.length} step${steps.length === 1 ? "" : "s"}`;
-	if (!expanded) return collapsed(`${heading} · Ctrl+O details`);
-	const lines = [theme.fg("accent", theme.bold(heading))];
-	for (const item of steps) lines.push(`${item.step}. ${item.completed ? "✓" : "○"} ${item.text}`);
-	if (details?.verify) lines.push(theme.fg("muted", `Verify: ${details.verify}`));
-	return new Text(lines.join("\n"), 1, 0);
+	const done = steps.filter((item) => item.completed).length;
+	return planRow(theme, SYMBOL.idle, "muted", `drafted · ${stepCount(steps)}`, `${done}/${steps.length} done`, [
+		...steps.map((item) => `${item.step}. ${item.completed ? "✓" : "○"} ${item.text}`),
+		...(details?.verify ? [theme.fg("muted", `Verify: ${details.verify}`)] : []),
+	], expanded);
 }
 
 function planCompleteView(details: PlanListDetails | undefined, expanded: boolean, theme: Theme): Component {
 	const steps = details?.steps ?? [];
-	const heading = `▸ Plan complete ✓ · ${steps.length}/${steps.length}`;
-	if (!expanded) return collapsed(heading);
-	const lines = [theme.fg("success", theme.bold(heading))];
-	for (const item of steps) lines.push(theme.fg("muted", `✓ ${item.text}`));
-	if (details?.verify) lines.push(theme.fg("muted", `Verified with: ${details.verify}`));
-	return new Text(lines.join("\n"), 1, 0);
+	return planRow(theme, SYMBOL.ok, "success", `complete · ${stepCount(steps)}`, `${steps.length}/${steps.length} done`, [
+		...steps.map((item) => theme.fg("muted", `✓ ${item.text}`)),
+		...(details?.verify ? [theme.fg("muted", `Verified with: ${details.verify}`)] : []),
+	], expanded);
 }
 
 function planExecuteView(details: PlanListDetails | undefined, expanded: boolean, theme: Theme): Component {
 	const steps = details?.steps ?? [];
 	const first = steps.find((t) => !t.completed);
-	const heading = `▸ Execute plan · start at step ${first?.step ?? 1} of ${steps.length}`;
-	if (!expanded) return collapsed(`${heading} · Ctrl+O details`);
-	const lines = [theme.fg("accent", theme.bold(heading))];
-	for (const item of steps) lines.push(`${item.step}. ${item.text}`);
-	if (details?.verify) lines.push(theme.fg("muted", `Verify: ${details.verify}`));
-	return new Text(lines.join("\n"), 1, 0);
+	return planRow(theme, SYMBOL.active, "accent", `execute · from step ${first?.step ?? 1} of ${steps.length}`, "started", [
+		...steps.map((item) => `${item.step}. ${item.text}`),
+		...(details?.verify ? [theme.fg("muted", `Verify: ${details.verify}`)] : []),
+	], expanded);
 }
 
 export function installPlan(pi: ExtensionAPI): void {
@@ -211,12 +208,12 @@ export function installPlan(pi: ExtensionAPI): void {
 		// Footer status
 		if (executionMode && todoItems.length > 0) {
 			const completed = todoItems.filter((t) => t.completed).length;
-			ctx.ui.setStatus("plan-mode", ctx.ui.theme.fg("accent", `▸ plan ${completed}/${todoItems.length}`));
+			setMode(ctx, "plan", `plan ${completed}/${todoItems.length}`);
 		} else if (planModeEnabled) {
-			const drafted = todoItems.length > 0 ? ` · ${todoItems.length} steps ready` : "";
-			ctx.ui.setStatus("plan-mode", ctx.ui.theme.fg("warning", `⏸ plan${drafted}`));
+			const drafted = todoItems.length > 0 ? ` · ${todoItems.length} step${todoItems.length === 1 ? "" : "s"} ready` : "";
+			setMode(ctx, "plan", `plan${drafted}`);
 		} else {
-			ctx.ui.setStatus("plan-mode", undefined);
+			setMode(ctx, "plan", undefined);
 		}
 
 		// Progress widget below the editor while executing
@@ -226,15 +223,8 @@ export function installPlan(pi: ExtensionAPI): void {
 				render(width: number) {
 					const total = todoItems.length;
 					const doneCount = todoItems.filter((t) => t.completed).length;
-					const pct = Math.round((doneCount / total) * 100);
-					const barColor = doneCount === total ? "success" : "accent";
 					const current = todoItems.find((t) => !t.completed);
-					const lines = [
-						theme.fg("accent", theme.bold(`▸ Plan ${doneCount}/${total}`)) +
-							" " +
-							theme.fg(barColor, progressBar(doneCount, total)) +
-							theme.fg("muted", ` ${pct}%`),
-					];
+					const lines = [`${theme.fg("accent", theme.bold(`Plan ${doneCount}/${total}`))}  ${theme.fg("dim", "/todos")}`];
 					for (const item of todoItems) lines.push(formatStep(item, theme, current));
 					if (planVerify) lines.push(theme.fg("dim", `Verify: ${planVerify}`));
 					return lines.map((line) => truncateToWidth(line, width));
@@ -348,34 +338,53 @@ export function installPlan(pi: ExtensionAPI): void {
 		});
 	}
 
-	function showTodosDialog(ctx: ExtensionContext): Promise<null> {
-		const total = todoItems.length;
-		const doneCount = todoItems.filter((t) => t.completed).length;
-		return ctx.ui.custom<null>((tui, theme, _kb, done) => {
-			const container = new Container();
-			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
-			const title = executionMode
-				? `Executing plan · ${doneCount}/${total} done`
-				: planModeEnabled
-					? `Draft plan · ${total} steps`
-					: `Plan · ${doneCount}/${total} done`;
-			container.addChild(new Text(theme.fg("accent", theme.bold(title)), 1, 0));
-			const current = todoItems.find((t) => !t.completed);
-			container.addChild(
-				new Text(todoItems.map((item) => ` ${item.step}. ${formatStep(item, theme, current)}`).join("\n"), 1, 0),
-			);
-			if (planVerify) container.addChild(new Text(theme.fg("dim", ` Verify: ${planVerify}`), 1, 0));
-			container.addChild(new Text(theme.fg("dim", "esc/enter close"), 1, 0));
-			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
-
-			return {
-				render: (w) => container.render(w),
-				invalidate: () => container.invalidate(),
-				handleInput: (data) => {
-					if (matchesKey(data, Key.escape) || matchesKey(data, Key.enter)) done(null);
-					tui.requestRender();
+	/** /todos: the shared docked panel; steps on the left, the full step and plan state on the right. */
+	function showTodosPanel(ctx: ExtensionContext): Promise<void> {
+		return openPanel(ctx, {
+			title: "Plan",
+			summary: () => {
+				const doneCount = todoItems.filter((t) => t.completed).length;
+				const phase = executionMode ? "executing" : planModeEnabled ? "draft" : "done";
+				return `${doneCount}/${todoItems.length} steps · ${phase}`;
+			},
+			items: () => {
+				const current = todoItems.find((t) => !t.completed);
+				return todoItems.map((item) => ({
+					id: String(item.step),
+					label: `${item.step}. ${item.text}`,
+					symbol: item.completed ? SYMBOL.ok : item === current ? SYMBOL.active : SYMBOL.idle,
+					tone: item.completed ? "success" : item === current ? "accent" : "muted",
+					meta: item.completed ? "done" : item === current ? "next" : "",
+				}));
+			},
+			detail: (row) => {
+				const item = todoItems.find((t) => String(t.step) === row.id)!;
+				return {
+					title: `Step ${item.step} of ${todoItems.length}`,
+					subtitle: item.completed ? "Done." : "Not done yet.",
+					subtitleTone: item.completed ? "success" : "muted",
+					fields: [
+						{ label: "step", value: item.text },
+						{ label: "plan", value: executionMode ? "executing" : planModeEnabled ? "draft, read-only" : "finished" },
+						...(planVerify ? [{ label: "verify", value: planVerify }] : []),
+					],
+				};
+			},
+			actions: [
+				{
+					key: "d",
+					label: (row) => (todoItems.find((t) => String(t.step) === row?.id)?.completed ? "Mark not done" : "Mark done"),
+					when: (row) => !!row && executionMode,
+					run: (row, panel) => {
+						const item = todoItems.find((t) => String(t.step) === row!.id)!;
+						item.completed = !item.completed;
+						persistState();
+						updateStatus(ctx);
+						panel.notice(`Step ${item.step} ${item.completed ? "done" : "reopened"}.`, "success");
+					},
 				},
-			};
+			],
+			empty: "No plan steps. Create a plan first with /plan.",
 		});
 	}
 
@@ -404,7 +413,7 @@ export function installPlan(pi: ExtensionAPI): void {
 				ctx.ui.notify(`Plan:\n${list}`, "info");
 				return;
 			}
-			await showTodosDialog(ctx);
+			await showTodosPanel(ctx);
 		},
 	});
 
@@ -591,7 +600,7 @@ export function installPlan(pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
-		ctx.ui.setStatus("plan-mode", undefined);
+		setMode(ctx, "plan", undefined);
 		ctx.ui.setWidget("plan-todos", undefined);
 	});
 

@@ -85,7 +85,7 @@ test('/plan disables write tools and blocks destructive bash without touching th
   const h = harness();
   h.ctx.ui.setTheme = () => { throw new Error('Plan mode must not manage themes'); };
   await h.run('plan');
-  assert.equal(h.statuses.get('plan-mode'), '⏸ plan');
+  assert.equal(h.statuses.get('mode:plan'), '◆ plan');
   assert.deepEqual(h.activeTools(), ['read', 'bash', 'ask_user', 'custom_read']);
 
   const blocked = await h.emit('tool_call', { toolName: 'bash', input: { command: 'rm fixture.txt' } });
@@ -93,7 +93,7 @@ test('/plan disables write tools and blocks destructive bash without touching th
   assert.equal(await h.emit('tool_call', { toolName: 'bash', input: { command: 'git status' } }), undefined);
 
   await h.run('plan');
-  assert.equal(h.statuses.has('plan-mode'), false);
+  assert.equal(h.statuses.has('mode:plan'), false);
   assert.deepEqual(h.activeTools(), ['read', 'bash', 'edit', 'write', 'ask_user', 'custom_read']);
 });
 
@@ -114,7 +114,7 @@ test('a numbered plan becomes tracked execution only after dialog approval', asy
     messages: [{ role: 'assistant', content: [{ type: 'text', text: '**Goal:** ship it\n\nPlan:\n1. Inspect the implementation\n2. Run tests\n\n**Verify:** npm test' }] }],
   });
 
-  assert.equal(h.statuses.get('plan-mode'), '▸ plan 0/2');
+  assert.equal(h.statuses.get('mode:plan'), '◆ plan 0/2');
   assert.ok(h.widgets.has('plan-todos'));
   assert.ok(h.activeTools().includes('edit'));
 
@@ -128,14 +128,28 @@ test('a numbered plan becomes tracked execution only after dialog approval', asy
   assert.match(execMessage.message.content, /verify with: npm test/);
 
   const widgetLines = h.renderWidget('plan-todos');
-  assert.match(widgetLines[0], /▸ Plan 0\/2/);
+  assert.match(widgetLines[0], /^Plan 0\/2 {2}\/todos/);
   assert.match(widgetLines.at(-1), /Verify: npm test/);
 
   await h.emit('turn_end', {
     message: { role: 'assistant', content: [{ type: 'text', text: 'Inspected. [DONE:1]' }] },
   });
-  assert.equal(h.statuses.get('plan-mode'), '▸ plan 1/2');
-  assert.match(h.renderWidget('plan-todos')[0], /▸ Plan 1\/2/);
+  assert.equal(h.statuses.get('mode:plan'), '◆ plan 1/2');
+  assert.match(h.renderWidget('plan-todos')[0], /^Plan 1\/2 {2}\/todos/);
+
+  // /todos is the shared docked panel: steps, the next one, and a done toggle.
+  const panels = [];
+  h.ctx.ui.custom = async (factory) => { panels.push(factory({ terminal: { columns: 120, rows: 30 }, requestRender() {} }, theme, undefined, () => {})); };
+  await h.run('todos');
+  const screen = () => panels[0].render(120).join('\n');
+  assert.match(screen(), /Plan {2}1\/2 steps · executing/);
+  assert.match(screen(), /✓ 1\. Inspect the implementation\s+done/);
+  assert.match(screen(), /● 2\. Run tests\s+next/);
+  assert.match(screen(), /verify\s+npm test/);
+  panels[0].handleInput('\x1b[B');
+  panels[0].handleInput('d');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(h.statuses.get('mode:plan'), '◆ plan 2/2');
 });
 
 test('completing every step sends a plan-complete message with details', async () => {
@@ -150,7 +164,7 @@ test('completing every step sends a plan-complete message with details', async (
   const complete = h.entries.find((e) => e.customType === 'plan-complete');
   assert.equal(complete.data.steps.every((s) => s.completed), true);
   assert.equal(h.messages.some((m) => m.message.customType === 'plan-complete'), false);
-  assert.equal(h.statuses.has('plan-mode'), false);
+  assert.equal(h.statuses.has('mode:plan'), false);
   assert.equal(h.widgets.has('plan-todos'), false);
 });
 
@@ -160,7 +174,7 @@ test('staying or discarding from the review dialog keeps or drops the plan', asy
   await stay.emit('agent_end', {
     messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Plan:\n1. Inspect the code' }] }],
   });
-  assert.equal(stay.statuses.get('plan-mode'), '⏸ plan · 1 steps ready');
+  assert.equal(stay.statuses.get('mode:plan'), '◆ plan · 1 step ready');
   assert.equal(stay.activeTools().includes('edit'), false);
 
   const discard = harness({ customResult: 'discard' });
@@ -168,7 +182,7 @@ test('staying or discarding from the review dialog keeps or drops the plan', asy
   await discard.emit('agent_end', {
     messages: [{ role: 'assistant', content: [{ type: 'text', text: 'Plan:\n1. Inspect the code' }] }],
   });
-  assert.equal(discard.statuses.has('plan-mode'), false);
+  assert.equal(discard.statuses.has('mode:plan'), false);
   assert.ok(discard.activeTools().includes('edit'));
   assert.match(discard.notifications.at(-1).message, /discarded/);
 });
@@ -178,7 +192,7 @@ test('the public event bus lets workflow packages activate plan mode', () => {
   const request = { ctx: h.ctx, source: '/work' };
   h.events.emit('plan-mode:enable', request);
   assert.equal(request.handled, true);
-  assert.equal(h.statuses.get('plan-mode'), '⏸ plan');
+  assert.equal(h.statuses.get('mode:plan'), '◆ plan');
   assert.equal(h.activeTools().includes('write'), false);
   assert.match(h.notifications.at(-1).message, /enabled by \/work/);
 });
@@ -188,11 +202,11 @@ test('persisted plan state restores on session start and clears UI on shutdown',
   await first.run('plan');
   const resumed = harness({ savedEntries: first.entries });
   await resumed.emit('session_start', { reason: 'resume' });
-  assert.equal(resumed.statuses.get('plan-mode'), '⏸ plan');
+  assert.equal(resumed.statuses.get('mode:plan'), '◆ plan');
   assert.equal(resumed.activeTools().includes('edit'), false);
 
   await resumed.emit('session_shutdown', { reason: 'quit' });
-  assert.equal(resumed.statuses.has('plan-mode'), false);
+  assert.equal(resumed.statuses.has('mode:plan'), false);
   assert.equal(resumed.widgets.has('plan-todos'), false);
 });
 
@@ -235,7 +249,7 @@ test('plan-todo-list renderer shows a collapsed summary and expanded steps', asy
   const details = { steps: [{ step: 1, text: 'Inspect the code', completed: false }], verify: 'npm test' };
 
   const collapsedView = renderer({ data: details }, { expanded: false }, theme);
-  assert.match(collapsedView.render(80)[0], /▸ Plan · 1 step · Ctrl\+O details/);
+  assert.match(collapsedView.render(80)[0], /^○ PLAN {3}drafted · 1 step +0\/1 done$/);
 
   const expandedView = renderer({ data: details }, { expanded: true }, theme);
   const lines = expandedView.render(80).join('\n');
@@ -248,11 +262,11 @@ test('plan-complete and plan-mode-execute renderers summarize and expand', () =>
   const details = { steps: [{ step: 1, text: 'Inspect the code', completed: true }] };
 
   const complete = h.renderers.get('plan-complete');
-  assert.match(complete({ data: details }, { expanded: false }, theme).render(80)[0], /▸ Plan complete ✓ · 1\/1/);
+  assert.match(complete({ data: details }, { expanded: false }, theme).render(80)[0], /^✓ PLAN {3}complete · 1 step +1\/1 done$/);
   assert.match(complete({ data: details }, { expanded: true }, theme).render(80).join('\n'), /✓ Inspect the code/);
 
   const execute = h.renderers.get('plan-mode-execute');
-  assert.match(execute({ details }, { expanded: false }, theme).render(80)[0], /▸ Execute plan/);
+  assert.match(execute({ details }, { expanded: false }, theme).render(80)[0], /^● PLAN {3}execute · from step 1 of 1 +started$/);
 });
 
 test('the execution context injection lists only remaining steps', async () => {
