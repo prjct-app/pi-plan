@@ -69,5 +69,8 @@
     "CONTRIBUTING.md",
     "CHANGELOG.md",
     "docs/package.md"
-  ]
+  ],
+  "dependencies": {
+    "@prjct.app/pi-tui-kit": "^0.1.0"
+  }
 }

@@ -16,6 +16,7 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
+import { setMode } from "@prjct.app/pi-tui-kit";
 import { DynamicBorder, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
@@ -211,12 +212,12 @@ export function installPlan(pi: ExtensionAPI): void {
 		// Footer status
 		if (executionMode && todoItems.length > 0) {
 			const completed = todoItems.filter((t) => t.completed).length;
-			ctx.ui.setStatus("plan-mode", ctx.ui.theme.fg("accent", `▸ plan ${completed}/${todoItems.length}`));
+			setMode(ctx, "plan", `plan ${completed}/${todoItems.length}`);
 		} else if (planModeEnabled) {
-			const drafted = todoItems.length > 0 ? ` · ${todoItems.length} steps ready` : "";
-			ctx.ui.setStatus("plan-mode", ctx.ui.theme.fg("warning", `⏸ plan${drafted}`));
+			const drafted = todoItems.length > 0 ? ` · ${todoItems.length} step${todoItems.length === 1 ? "" : "s"} ready` : "";
+			setMode(ctx, "plan", `plan${drafted}`);
 		} else {
-			ctx.ui.setStatus("plan-mode", undefined);
+			setMode(ctx, "plan", undefined);
 		}
 
 		// Progress widget below the editor while executing
@@ -591,7 +592,7 @@ export function installPlan(pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_shutdown", async (_event, ctx) => {
-		ctx.ui.setStatus("plan-mode", undefined);
+		setMode(ctx, "plan", undefined);
 		ctx.ui.setWidget("plan-todos", undefined);
 	});
 
