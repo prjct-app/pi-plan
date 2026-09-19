@@ -71,6 +71,6 @@
     "docs/package.md"
   ],
   "dependencies": {
-    "@prjct.app/pi-tui-kit": "^0.1.0"
+    "@prjct.app/pi-tui-kit": "file:../pi-tui-kit"
   }
 }
