@@ -16,7 +16,7 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
-import { SYMBOL, openPanel, setMode } from "@prjct.app/pi-tui-kit";
+import { SYMBOL, openPanel, row, setMode } from "@prjct.app/pi-tui-kit";
 import { DynamicBorder, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
@@ -139,15 +139,6 @@ function getTextContent(message: AssistantMessage): string {
 }
 
 // Collapsed one-line transcript view (pi-team pattern).
-function collapsed(text: string): Component {
-	return {
-		invalidate() {},
-		render(width: number) {
-			return [truncateToWidth(text, width)];
-		},
-	};
-}
-
 function formatStep(item: TodoItem, theme: Theme, current: TodoItem | undefined): string {
 	if (item.completed) {
 		return theme.fg("success", "✓ ") + theme.fg("muted", theme.strikethrough(item.text));
@@ -158,35 +149,42 @@ function formatStep(item: TodoItem, theme: Theme, current: TodoItem | undefined)
 	return theme.fg("dim", "○ ") + theme.fg("muted", item.text);
 }
 
+/** Collapsed: one row in the shared grammar. Expanded: the row, then the steps. */
+function planRow(theme: Theme, symbol: string, tone: "accent" | "success" | "muted", target: string, meta: string, body: string[], expanded: boolean): Component {
+	const head = row(theme, { symbol, tone, verb: "PLAN", target, meta });
+	if (!expanded || !body.length) return head;
+	const container = new Container();
+	container.addChild(head);
+	container.addChild(new Text(body.join("\n"), 2, 0));
+	return container;
+}
+
+const stepCount = (steps: readonly TodoItem[]): string => `${steps.length} step${steps.length === 1 ? "" : "s"}`;
+
 function planListView(details: PlanListDetails | undefined, expanded: boolean, theme: Theme): Component {
 	const steps = details?.steps ?? [];
-	const heading = `▸ Plan · ${steps.length} step${steps.length === 1 ? "" : "s"}`;
-	if (!expanded) return collapsed(`${heading} · Ctrl+O details`);
-	const lines = [theme.fg("accent", theme.bold(heading))];
-	for (const item of steps) lines.push(`${item.step}. ${item.completed ? "✓" : "○"} ${item.text}`);
-	if (details?.verify) lines.push(theme.fg("muted", `Verify: ${details.verify}`));
-	return new Text(lines.join("\n"), 1, 0);
+	const done = steps.filter((item) => item.completed).length;
+	return planRow(theme, SYMBOL.idle, "muted", `drafted · ${stepCount(steps)}`, `${done}/${steps.length} done`, [
+		...steps.map((item) => `${item.step}. ${item.completed ? "✓" : "○"} ${item.text}`),
+		...(details?.verify ? [theme.fg("muted", `Verify: ${details.verify}`)] : []),
+	], expanded);
 }
 
 function planCompleteView(details: PlanListDetails | undefined, expanded: boolean, theme: Theme): Component {
 	const steps = details?.steps ?? [];
-	const heading = `▸ Plan complete ✓ · ${steps.length}/${steps.length}`;
-	if (!expanded) return collapsed(heading);
-	const lines = [theme.fg("success", theme.bold(heading))];
-	for (const item of steps) lines.push(theme.fg("muted", `✓ ${item.text}`));
-	if (details?.verify) lines.push(theme.fg("muted", `Verified with: ${details.verify}`));
-	return new Text(lines.join("\n"), 1, 0);
+	return planRow(theme, SYMBOL.ok, "success", `complete · ${stepCount(steps)}`, `${steps.length}/${steps.length} done`, [
+		...steps.map((item) => theme.fg("muted", `✓ ${item.text}`)),
+		...(details?.verify ? [theme.fg("muted", `Verified with: ${details.verify}`)] : []),
+	], expanded);
 }
 
 function planExecuteView(details: PlanListDetails | undefined, expanded: boolean, theme: Theme): Component {
 	const steps = details?.steps ?? [];
 	const first = steps.find((t) => !t.completed);
-	const heading = `▸ Execute plan · start at step ${first?.step ?? 1} of ${steps.length}`;
-	if (!expanded) return collapsed(`${heading} · Ctrl+O details`);
-	const lines = [theme.fg("accent", theme.bold(heading))];
-	for (const item of steps) lines.push(`${item.step}. ${item.text}`);
-	if (details?.verify) lines.push(theme.fg("muted", `Verify: ${details.verify}`));
-	return new Text(lines.join("\n"), 1, 0);
+	return planRow(theme, SYMBOL.active, "accent", `execute · from step ${first?.step ?? 1} of ${steps.length}`, "started", [
+		...steps.map((item) => `${item.step}. ${item.text}`),
+		...(details?.verify ? [theme.fg("muted", `Verify: ${details.verify}`)] : []),
+	], expanded);
 }
 
 export function installPlan(pi: ExtensionAPI): void {
