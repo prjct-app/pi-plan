@@ -56,6 +56,7 @@ function harness({ flag = false, savedEntries = [], customResult = 'execute' } =
 
   return {
     ctx,
+    commands,
     events,
     entries,
     messages,
@@ -249,7 +250,7 @@ test('plan-todo-list renderer shows a collapsed summary and expanded steps', asy
   const details = { steps: [{ step: 1, text: 'Inspect the code', completed: false }], verify: 'npm test' };
 
   const collapsedView = renderer({ data: details }, { expanded: false }, theme);
-  assert.match(collapsedView.render(80)[0], /^○ PLAN {3}drafted · 1 step +0\/1 done$/);
+  assert.match(collapsedView.render(80)[0], /^○ PLAN {4}drafted · 1 step +0\/1 done$/);
 
   const expandedView = renderer({ data: details }, { expanded: true }, theme);
   const lines = expandedView.render(80).join('\n');
@@ -262,11 +263,11 @@ test('plan-complete and plan-mode-execute renderers summarize and expand', () =>
   const details = { steps: [{ step: 1, text: 'Inspect the code', completed: true }] };
 
   const complete = h.renderers.get('plan-complete');
-  assert.match(complete({ data: details }, { expanded: false }, theme).render(80)[0], /^✓ PLAN {3}complete · 1 step +1\/1 done$/);
+  assert.match(complete({ data: details }, { expanded: false }, theme).render(80)[0], /^✓ PLAN {4}complete · 1 step +1\/1 done$/);
   assert.match(complete({ data: details }, { expanded: true }, theme).render(80).join('\n'), /✓ Inspect the code/);
 
   const execute = h.renderers.get('plan-mode-execute');
-  assert.match(execute({ details }, { expanded: false }, theme).render(80)[0], /^● PLAN {3}execute · from step 1 of 1 +started$/);
+  assert.match(execute({ details }, { expanded: false }, theme).render(80)[0], /^● PLAN {4}execute · from step 1 of 1 +started$/);
 });
 
 test('the execution context injection lists only remaining steps', async () => {
@@ -281,4 +282,17 @@ test('the execution context injection lists only remaining steps', async () => {
   assert.match(injection.message.content, /Progress: 1\/2 steps complete/);
   assert.match(injection.message.content, /2\. Run tests/);
   assert.doesNotMatch(injection.message.content, /1\. Inspect the code/);
+});
+
+test('/plan completes on and off with the prjct mark and applies them idempotently', async () => {
+  const h = harness();
+  const plan = h.commands.get('plan');
+  assert.match(plan.description, /^p · plan mode/);
+  assert.deepEqual(plan.getArgumentCompletions('').map((item) => [item.value, item.description]), [['on', 'p · turn plan mode on'], ['off', 'p · turn plan mode off']]);
+  await h.run('plan', 'on');
+  assert.equal(h.statuses.get('mode:plan'), '◆ plan');
+  await h.run('plan', 'on');
+  assert.equal(h.statuses.get('mode:plan'), '◆ plan', 'on twice stays on');
+  await h.run('plan', 'off');
+  assert.equal(h.statuses.has('mode:plan'), false);
 });

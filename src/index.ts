@@ -16,7 +16,7 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
-import { SYMBOL, openPanel, row, setMode } from "@prjct.app/pi-tui-kit";
+import { ON_OFF, SYMBOL, brand, completer, openPanel, row, setMode } from "@prjct.app/pi-tui-kit";
 import { DynamicBorder, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
@@ -397,12 +397,19 @@ export function installPlan(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("plan", {
-		description: "Toggle plan mode (read-only exploration)",
-		handler: async (_args, ctx) => togglePlanMode(ctx),
+		description: brand("plan mode, read-only exploration: on | off (Ctrl+Alt+P toggles)"),
+		getArgumentCompletions: completer(ON_OFF("plan mode")),
+		handler: async (args, ctx) => {
+			const word = args.trim().toLowerCase();
+			if (word === "on") { if (!planModeEnabled) enablePlanMode(ctx); else ctx.ui.notify("Plan mode is already on.", "info"); return; }
+			if (word === "off") { if (planModeEnabled) disablePlanMode(ctx); else ctx.ui.notify("Plan mode is already off.", "info"); return; }
+			if (word) { ctx.ui.notify("Usage: /plan [on|off]. /plan alone toggles.", "warning"); return; }
+			togglePlanMode(ctx);
+		},
 	});
 
 	pi.registerCommand("todos", {
-		description: "Show the current plan steps and progress",
+		description: brand("plan steps: panel with progress and done toggles"),
 		handler: async (_args, ctx) => {
 			if (todoItems.length === 0) {
 				ctx.ui.notify("No plan steps. Create a plan first with /plan", "info");
@@ -418,7 +425,7 @@ export function installPlan(pi: ExtensionAPI): void {
 	});
 
 	pi.registerShortcut(Key.ctrlAlt("p"), {
-		description: "Toggle plan mode",
+		description: brand("toggle plan mode"),
 		handler: async (ctx) => togglePlanMode(ctx),
 	});
 
