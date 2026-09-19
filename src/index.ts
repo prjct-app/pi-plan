@@ -16,13 +16,12 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
-import { setMode } from "@prjct.app/pi-tui-kit";
+import { SYMBOL, openPanel, setMode } from "@prjct.app/pi-tui-kit";
 import { DynamicBorder, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
 	Container,
 	Key,
-	matchesKey,
 	SelectList,
 	type SelectItem,
 	Text,
@@ -34,7 +33,6 @@ import {
 	extractVerification,
 	isSafeCommand,
 	markCompletedSteps,
-	progressBar,
 	type TodoItem,
 } from "./utils.ts";
 
@@ -227,15 +225,8 @@ export function installPlan(pi: ExtensionAPI): void {
 				render(width: number) {
 					const total = todoItems.length;
 					const doneCount = todoItems.filter((t) => t.completed).length;
-					const pct = Math.round((doneCount / total) * 100);
-					const barColor = doneCount === total ? "success" : "accent";
 					const current = todoItems.find((t) => !t.completed);
-					const lines = [
-						theme.fg("accent", theme.bold(`▸ Plan ${doneCount}/${total}`)) +
-							" " +
-							theme.fg(barColor, progressBar(doneCount, total)) +
-							theme.fg("muted", ` ${pct}%`),
-					];
+					const lines = [`${theme.fg("accent", theme.bold(`Plan ${doneCount}/${total}`))}  ${theme.fg("dim", "/todos")}`];
 					for (const item of todoItems) lines.push(formatStep(item, theme, current));
 					if (planVerify) lines.push(theme.fg("dim", `Verify: ${planVerify}`));
 					return lines.map((line) => truncateToWidth(line, width));
@@ -349,34 +340,53 @@ export function installPlan(pi: ExtensionAPI): void {
 		});
 	}
 
-	function showTodosDialog(ctx: ExtensionContext): Promise<null> {
-		const total = todoItems.length;
-		const doneCount = todoItems.filter((t) => t.completed).length;
-		return ctx.ui.custom<null>((tui, theme, _kb, done) => {
-			const container = new Container();
-			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
-			const title = executionMode
-				? `Executing plan · ${doneCount}/${total} done`
-				: planModeEnabled
-					? `Draft plan · ${total} steps`
-					: `Plan · ${doneCount}/${total} done`;
-			container.addChild(new Text(theme.fg("accent", theme.bold(title)), 1, 0));
-			const current = todoItems.find((t) => !t.completed);
-			container.addChild(
-				new Text(todoItems.map((item) => ` ${item.step}. ${formatStep(item, theme, current)}`).join("\n"), 1, 0),
-			);
-			if (planVerify) container.addChild(new Text(theme.fg("dim", ` Verify: ${planVerify}`), 1, 0));
-			container.addChild(new Text(theme.fg("dim", "esc/enter close"), 1, 0));
-			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
-
-			return {
-				render: (w) => container.render(w),
-				invalidate: () => container.invalidate(),
-				handleInput: (data) => {
-					if (matchesKey(data, Key.escape) || matchesKey(data, Key.enter)) done(null);
-					tui.requestRender();
+	/** /todos: the shared docked panel; steps on the left, the full step and plan state on the right. */
+	function showTodosPanel(ctx: ExtensionContext): Promise<void> {
+		return openPanel(ctx, {
+			title: "Plan",
+			summary: () => {
+				const doneCount = todoItems.filter((t) => t.completed).length;
+				const phase = executionMode ? "executing" : planModeEnabled ? "draft" : "done";
+				return `${doneCount}/${todoItems.length} steps · ${phase}`;
+			},
+			items: () => {
+				const current = todoItems.find((t) => !t.completed);
+				return todoItems.map((item) => ({
+					id: String(item.step),
+					label: `${item.step}. ${item.text}`,
+					symbol: item.completed ? SYMBOL.ok : item === current ? SYMBOL.active : SYMBOL.idle,
+					tone: item.completed ? "success" : item === current ? "accent" : "muted",
+					meta: item.completed ? "done" : item === current ? "next" : "",
+				}));
+			},
+			detail: (row) => {
+				const item = todoItems.find((t) => String(t.step) === row.id)!;
+				return {
+					title: `Step ${item.step} of ${todoItems.length}`,
+					subtitle: item.completed ? "Done." : "Not done yet.",
+					subtitleTone: item.completed ? "success" : "muted",
+					fields: [
+						{ label: "step", value: item.text },
+						{ label: "plan", value: executionMode ? "executing" : planModeEnabled ? "draft, read-only" : "finished" },
+						...(planVerify ? [{ label: "verify", value: planVerify }] : []),
+					],
+				};
+			},
+			actions: [
+				{
+					key: "d",
+					label: (row) => (todoItems.find((t) => String(t.step) === row?.id)?.completed ? "Mark not done" : "Mark done"),
+					when: (row) => !!row && executionMode,
+					run: (row, panel) => {
+						const item = todoItems.find((t) => String(t.step) === row!.id)!;
+						item.completed = !item.completed;
+						persistState();
+						updateStatus(ctx);
+						panel.notice(`Step ${item.step} ${item.completed ? "done" : "reopened"}.`, "success");
+					},
 				},
-			};
+			],
+			empty: "No plan steps. Create a plan first with /plan.",
 		});
 	}
 
@@ -405,7 +415,7 @@ export function installPlan(pi: ExtensionAPI): void {
 				ctx.ui.notify(`Plan:\n${list}`, "info");
 				return;
 			}
-			await showTodosDialog(ctx);
+			await showTodosPanel(ctx);
 		},
 	});
 

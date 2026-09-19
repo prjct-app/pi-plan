@@ -128,14 +128,28 @@ test('a numbered plan becomes tracked execution only after dialog approval', asy
   assert.match(execMessage.message.content, /verify with: npm test/);
 
   const widgetLines = h.renderWidget('plan-todos');
-  assert.match(widgetLines[0], /▸ Plan 0\/2/);
+  assert.match(widgetLines[0], /^Plan 0\/2 {2}\/todos/);
   assert.match(widgetLines.at(-1), /Verify: npm test/);
 
   await h.emit('turn_end', {
     message: { role: 'assistant', content: [{ type: 'text', text: 'Inspected. [DONE:1]' }] },
   });
   assert.equal(h.statuses.get('mode:plan'), '◆ plan 1/2');
-  assert.match(h.renderWidget('plan-todos')[0], /▸ Plan 1\/2/);
+  assert.match(h.renderWidget('plan-todos')[0], /^Plan 1\/2 {2}\/todos/);
+
+  // /todos is the shared docked panel: steps, the next one, and a done toggle.
+  const panels = [];
+  h.ctx.ui.custom = async (factory) => { panels.push(factory({ terminal: { columns: 120, rows: 30 }, requestRender() {} }, theme, undefined, () => {})); };
+  await h.run('todos');
+  const screen = () => panels[0].render(120).join('\n');
+  assert.match(screen(), /Plan {2}1\/2 steps · executing/);
+  assert.match(screen(), /✓ 1\. Inspect the implementation\s+done/);
+  assert.match(screen(), /● 2\. Run tests\s+next/);
+  assert.match(screen(), /verify\s+npm test/);
+  panels[0].handleInput('\x1b[B');
+  panels[0].handleInput('d');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(h.statuses.get('mode:plan'), '◆ plan 2/2');
 });
 
 test('completing every step sends a plan-complete message with details', async () => {
