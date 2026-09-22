@@ -8,7 +8,7 @@ Plan before editing in PI Agent with read-only tool restrictions, an approval st
 
 ## Demo
 
-[![Watch the pi-plan promotional demo](media/pi-plan-demo/poster.png)](https://github.com/prjct-app/pi-plan/raw/refs/heads/main/media/pi-plan-demo/pi-plan-demo.mp4)
+[![Watch the pi-plan promotional demo](https://raw.githubusercontent.com/prjct-app/pi-plan/main/media/pi-plan-demo/poster.png)](https://github.com/prjct-app/pi-plan/raw/refs/heads/main/media/pi-plan-demo/pi-plan-demo.mp4)
 
 [Watch or download the 40-second demo](https://github.com/prjct-app/pi-plan/raw/refs/heads/main/media/pi-plan-demo/pi-plan-demo.mp4). It shows read-only exploration, structured planning, human review, and tracked execution in PI Agent. The film follows the package's monochrome cover identity and uses an original instrumental soundtrack with no voice-over or external samples.
 
