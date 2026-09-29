@@ -462,25 +462,19 @@ export function installPlan(pi: ExtensionAPI): void {
 		}
 	});
 
-	// Filter stale instruction messages so old mode prompts never accumulate
-	// in the model context. Each mode keeps only its LATEST injected copy;
-	// older duplicates are dropped. Display entries (plan list, completion)
-	// live outside the LLM context entirely (appendEntry, not sendMessage).
+	// Instruction messages reach the model only while their mode is on. Every
+	// copy stays while it is on: dropping older copies rewrote the history at
+	// each turn and threw away the provider's prompt cache from that point on.
+	// before_agent_start injects a copy only when it differs from the last one,
+	// so copies do not pile up. Display entries (plan list, completion) live
+	// outside the LLM context entirely (appendEntry, not sendMessage).
 	pi.on("context", async (event) => {
 		const messages = event.messages;
-		let lastPlanInstruction = -1;
-		let lastExecutionInstruction = -1;
-		messages.forEach((m, i) => {
-			const customType = (m as { customType?: string }).customType;
-			if (customType === PLAN_INSTRUCTION_TYPE) lastPlanInstruction = i;
-			if (customType === "plan-execution-context") lastExecutionInstruction = i;
-		});
-
 		return {
-			messages: messages.filter((m, i) => {
+			messages: messages.filter((m) => {
 				const msg = m as AgentMessage & { customType?: string };
-				if (msg.customType === PLAN_INSTRUCTION_TYPE) return planModeEnabled && i === lastPlanInstruction;
-				if (msg.customType === "plan-execution-context") return executionMode && i === lastExecutionInstruction;
+				if (msg.customType === PLAN_INSTRUCTION_TYPE) return planModeEnabled;
+				if (msg.customType === "plan-execution-context") return executionMode;
 				if (msg.customType === "plan-mode-execute") return executionMode;
 				if (msg.role !== "user") return true;
 
@@ -501,8 +495,19 @@ export function installPlan(pi: ExtensionAPI): void {
 	});
 
 	// Inject plan/execution context before agent starts
-	pi.on("before_agent_start", async () => {
+	// The last copy of an instruction already in the session; an identical one is not sent again.
+	const lastInstruction = (ctx: ExtensionContext | undefined, customType: string): unknown => {
+		const branch = (ctx?.sessionManager?.getBranch?.() ?? []) as { type?: string; customType?: string; content?: unknown }[];
+		for (let i = branch.length - 1; i >= 0; i--) {
+			const entry = branch[i]!;
+			if (entry.type === "custom_message" && entry.customType === customType) return entry.content;
+		}
+		return undefined;
+	};
+
+	pi.on("before_agent_start", async (_event, ctx) => {
 		if (planModeEnabled) {
+			if (lastInstruction(ctx, PLAN_INSTRUCTION_TYPE) === PLAN_MODE_PROMPT) return;
 			return {
 				message: {
 					customType: PLAN_INSTRUCTION_TYPE,
@@ -513,10 +518,12 @@ export function installPlan(pi: ExtensionAPI): void {
 		}
 
 		if (executionMode && todoItems.length > 0) {
+			const content = executionContextPrompt(todoItems, planVerify);
+			if (lastInstruction(ctx, "plan-execution-context") === content) return;
 			return {
 				message: {
 					customType: "plan-execution-context",
-					content: executionContextPrompt(todoItems, planVerify),
+					content,
 					display: false,
 				},
 			};
