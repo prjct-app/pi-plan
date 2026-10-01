@@ -211,7 +211,7 @@ test('persisted plan state restores on session start and clears UI on shutdown',
   assert.equal(resumed.widgets.has('plan-todos'), false);
 });
 
-test('context filtering keeps only the latest instruction copy for the active mode', async () => {
+test('context filtering keeps every instruction copy of the active mode and none of the others', async () => {
   const h = harness();
   const olderPlan = { role: 'user', customType: 'plan-mode-context', content: 'plan v1' };
   const newerPlan = { role: 'user', customType: 'plan-mode-context', content: 'plan v2' };
@@ -224,9 +224,18 @@ test('context filtering keeps only the latest instruction copy for the active mo
   // Idle: instruction messages never reach the model.
   assert.deepEqual((await filter()).map((m) => m.content), ['hello']);
 
-  // Planning: only the newest plan instruction survives; execution leftovers drop.
+  // Planning: plan copies stay in place (a stable prefix); execution leftovers drop.
   await h.run('plan');
-  assert.deepEqual((await filter()).map((m) => m.content), ['plan v2', 'hello']);
+  assert.deepEqual((await filter()).map((m) => m.content), ['plan v1', 'plan v2', 'hello']);
+});
+
+test('an instruction identical to the last one in the session is not sent again', async () => {
+  const h = harness();
+  await h.run('plan');
+  const first = await h.emit('before_agent_start');
+  assert.equal(first.message.customType, 'plan-mode-context');
+  h.ctx.sessionManager.getBranch().push({ type: 'custom_message', customType: 'plan-mode-context', content: first.message.content });
+  assert.equal(await h.emit('before_agent_start'), undefined);
 });
 
 test('/todos notifies when empty and opens a dialog with steps otherwise', async () => {
