@@ -1,3 +1,9 @@
+## [0.3.2](https://github.com/prjct-app/pi-plan/compare/v0.3.1...v0.3.2) (2026-10-01)
+
+### Bug Fixes
+
+* keep plan instructions in place so the prompt cache survives ([#17](https://github.com/prjct-app/pi-plan/issues/17)) ([639f944](https://github.com/prjct-app/pi-plan/commit/639f9440497be4a1ac41a57b3d060e47c82c88fa))
+
 ## [0.3.1](https://github.com/prjct-app/pi-plan/compare/v0.3.0...v0.3.1) (2026-09-22)
 
 ## [0.3.0](https://github.com/prjct-app/pi-plan/compare/v0.2.2...v0.3.0) (2026-09-19)
