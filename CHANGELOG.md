@@ -1,3 +1,12 @@
+## [0.3.4](https://github.com/prjct-app/pi-plan/compare/v0.3.3...v0.3.4) (2026-10-02)
+
+### Bug Fixes
+
+* install the published TUI dependency in packages and CI ([fb49a88](https://github.com/prjct-app/pi-plan/commit/fb49a888811a58019574ade99a8bd728eff8ea53))
+* prepare public packages and automatic runtime dependencies ([51c7ab3](https://github.com/prjct-app/pi-plan/commit/51c7ab3da9fb48632b71ed4d9404b76f32c0df06))
+* resolve public lockfiles from npm instead of local symlinks ([3951064](https://github.com/prjct-app/pi-plan/commit/39510646d27ce44a261579db3743a102f4dc9818))
+* validate Pi runtime dependencies without auditing supplied host peers ([de37f71](https://github.com/prjct-app/pi-plan/commit/de37f7112a7ac2ad572d48edc1795dc259b078f4))
+
 ## [0.3.2](https://github.com/prjct-app/pi-plan/compare/v0.3.1...v0.3.2) (2026-10-01)
 
 ### Bug Fixes
