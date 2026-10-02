@@ -1,6 +1,6 @@
 # pi-plan
 
-[![pi-plan — extension for PI Agent](https://raw.githubusercontent.com/prjct-app/pi-clipboard/main/docs/covers/pi-plan.png)](https://pi.dev)
+[![pi-plan — extension for PI Agent](https://raw.githubusercontent.com/prjct-app/pi-plan/main/docs/cover.png)](https://pi.dev)
 
 Plan before editing in PI Agent with read-only tool restrictions, an approval step, and task progress tracking.
 
