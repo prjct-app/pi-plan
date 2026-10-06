@@ -1,3 +1,9 @@
+## [0.3.5](https://github.com/prjct-app/pi-plan/compare/v0.3.4...v0.3.5) (2026-10-06)
+
+### Bug Fixes
+
+* retain user instructions that quote plan markers ([8f7a69a](https://github.com/prjct-app/pi-plan/commit/8f7a69afcfee43db9a8d0f6a43467379ce434699))
+
 ## [0.3.4](https://github.com/prjct-app/pi-plan/compare/v0.3.3...v0.3.4) (2026-10-02)
 
 ## Unreleased

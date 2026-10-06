@@ -1,6 +1,6 @@
 {
   "name": "@prjct.app/pi-plan",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Plan before editing in PI Agent with read-only tool restrictions, an approval step, and task progress tracking.",
   "type": "module",
   "keywords": [
