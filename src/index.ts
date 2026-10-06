@@ -476,19 +476,8 @@ export function installPlan(pi: ExtensionAPI): void {
 				if (msg.customType === PLAN_INSTRUCTION_TYPE) return planModeEnabled;
 				if (msg.customType === "plan-execution-context") return executionMode;
 				if (msg.customType === "plan-mode-execute") return executionMode;
-				if (msg.role !== "user") return true;
-
-				// Legacy sessions stored the plan-mode prompt as plain user text.
-				const content = msg.content;
-				if (typeof content === "string") {
-					return planModeEnabled || !content.includes("[PLAN MODE ACTIVE]");
-				}
-				if (Array.isArray(content)) {
-					return (
-						planModeEnabled ||
-						!content.some((c) => c.type === "text" && (c as TextContent).text?.includes("[PLAN MODE ACTIVE]"))
-					);
-				}
+				// Only extension-owned, typed messages are mode instructions. A
+				// user may quote any marker while reporting a bug or correcting us.
 				return true;
 			}),
 		};
