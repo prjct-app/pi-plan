@@ -1,5 +1,9 @@
 ## [0.3.4](https://github.com/prjct-app/pi-plan/compare/v0.3.3...v0.3.4) (2026-10-02)
 
+## Unreleased
+
+- Preserve user messages quoting plan-mode markers; filter only extension-owned instructions.
+
 ### Bug Fixes
 
 * install the published TUI dependency in packages and CI ([fb49a88](https://github.com/prjct-app/pi-plan/commit/fb49a888811a58019574ade99a8bd728eff8ea53))

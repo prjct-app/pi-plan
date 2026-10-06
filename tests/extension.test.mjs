@@ -211,6 +211,18 @@ test('persisted plan state restores on session start and clears UI on shutdown',
   assert.equal(resumed.widgets.has('plan-todos'), false);
 });
 
+test('user instructions mentioning plan markers survive every mode', async () => {
+  for (const flag of [false, true]) {
+    const h = harness({ flag });
+    const text = 'Fix [PLAN MODE ACTIVE] in the header. Preserve the database; do not deploy.';
+    const messages = [
+      { role: 'user', content: text },
+      { role: 'user', content: [{ type: 'text', text }] },
+    ];
+    assert.deepEqual((await h.emit('context', { messages })).messages, messages);
+  }
+});
+
 test('context filtering keeps every instruction copy of the active mode and none of the others', async () => {
   const h = harness();
   const olderPlan = { role: 'user', customType: 'plan-mode-context', content: 'plan v1' };
