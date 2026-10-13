@@ -112,11 +112,11 @@ export function isSafeCommand(command: string): boolean {
 	return !isDestructive && isSafe;
 }
 
-export interface TodoItem {
+export type TodoItem = Readonly<{
 	step: number;
 	text: string;
 	completed: boolean;
-}
+}>;
 
 // Clean display text without changing its meaning: keep verbs such as
 // "Delete" or "Remove" because stripping them inverts the step's intent.
@@ -189,13 +189,17 @@ export function extractDoneSteps(message: string): number[] {
 	return steps;
 }
 
-export function markCompletedSteps(text: string, items: TodoItem[]): number {
-	const doneSteps = extractDoneSteps(text);
-	for (const step of doneSteps) {
-		const item = items.find((t) => t.step === step);
-		if (item) item.completed = true;
-	}
-	return doneSteps.length;
+/**
+ * The steps after `text` reports `[DONE:n]` markers: a new list, or the same one when nothing changed.
+ * `reported` counts every marker found, including ones for steps that do not exist.
+ */
+export function withCompletedSteps(text: string, items: readonly TodoItem[]): Readonly<{ items: readonly TodoItem[]; reported: number }> {
+	const doneSteps = new Set(extractDoneSteps(text));
+	const changed = items.some((item) => doneSteps.has(item.step) && !item.completed);
+	return {
+		items: changed ? items.map((item) => (doneSteps.has(item.step) ? { ...item, completed: true } : item)) : items,
+		reported: extractDoneSteps(text).length,
+	};
 }
 
 export function progressBar(completed: number, total: number, width = 8): string {

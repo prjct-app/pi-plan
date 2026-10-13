@@ -5,7 +5,7 @@ import {
   extractTodoItems,
   extractVerification,
   isSafeCommand,
-  markCompletedSteps,
+  withCompletedSteps,
   progressBar,
 } from '../src/utils.ts';
 
@@ -71,13 +71,17 @@ test('isSafeCommand allows read-only inspection and blocks mutations', () => {
   }
 });
 
-test('markCompletedSteps marks only listed steps', () => {
+test('withCompletedSteps returns a new list and leaves the given steps untouched', () => {
   const items = [
     { step: 1, text: 'a', completed: false },
     { step: 2, text: 'b', completed: false },
   ];
-  assert.equal(markCompletedSteps('done [DONE:1] and [DONE:9]', items), 2);
-  assert.deepEqual(items.map((i) => i.completed), [true, false]);
+  const progress = withCompletedSteps('done [DONE:1] and [DONE:9]', items);
+  assert.equal(progress.reported, 2);
+  assert.deepEqual(progress.items.map((i) => i.completed), [true, false]);
+  assert.deepEqual(items.map((i) => i.completed), [false, false], 'steps already saved in the session keep their value');
+  assert.equal(progress.items[1], items[1], 'unchanged steps are shared, not copied');
+  assert.equal(withCompletedSteps('no markers', items).items, items, 'nothing changed: same list');
 });
 
 test('progressBar renders partial and complete ratios', () => {
