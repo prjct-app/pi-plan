@@ -121,19 +121,13 @@ export interface TodoItem {
 // Clean display text without changing its meaning: keep verbs such as
 // "Delete" or "Remove" because stripping them inverts the step's intent.
 export function cleanStepText(text: string): string {
-	let cleaned = text
+	const spaced = text
 		.replace(/\*{1,2}([^*]+)\*{1,2}/g, "$1") // Remove bold/italic
 		.replace(/`([^`]+)`/g, "$1") // Remove code
 		.replace(/\s+/g, " ")
 		.trim();
-
-	if (cleaned.length > 0) {
-		cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-	}
-	if (cleaned.length > 100) {
-		cleaned = `${cleaned.slice(0, 97)}...`;
-	}
-	return cleaned;
+	const capitalized = spaced.length > 0 ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : spaced;
+	return capitalized.length > 100 ? `${capitalized.slice(0, 97)}...` : capitalized;
 }
 
 // Header accepted as "Plan:", "**Plan:**", "## Plan:", and similar variants.

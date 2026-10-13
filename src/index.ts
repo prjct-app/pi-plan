@@ -188,11 +188,13 @@ function planExecuteView(details: PlanListDetails | undefined, expanded: boolean
 }
 
 export function installPlan(pi: ExtensionAPI): void {
-	let planModeEnabled = false;
-	let executionMode = false;
-	let todoItems: TodoItem[] = [];
-	let planVerify: string | undefined;
-	let toolsBeforePlanMode: string[] | undefined;
+	const session = {
+		planModeEnabled: false,
+		executionMode: false,
+		todoItems: [] as TodoItem[],
+		planVerify: undefined as string | undefined,
+		toolsBeforePlanMode: undefined as string[] | undefined,
+	};
 
 	pi.registerFlag("plan", {
 		description: "Start in plan mode (read-only exploration)",
@@ -206,27 +208,27 @@ export function installPlan(pi: ExtensionAPI): void {
 
 	function updateStatus(ctx: ExtensionContext): void {
 		// Footer status
-		if (executionMode && todoItems.length > 0) {
-			const completed = todoItems.filter((t) => t.completed).length;
-			setMode(ctx, "plan", `plan ${completed}/${todoItems.length}`);
-		} else if (planModeEnabled) {
-			const drafted = todoItems.length > 0 ? ` · ${todoItems.length} step${todoItems.length === 1 ? "" : "s"} ready` : "";
+		if (session.executionMode && session.todoItems.length > 0) {
+			const completed = session.todoItems.filter((t) => t.completed).length;
+			setMode(ctx, "plan", `plan ${completed}/${session.todoItems.length}`);
+		} else if (session.planModeEnabled) {
+			const drafted = session.todoItems.length > 0 ? ` · ${session.todoItems.length} step${session.todoItems.length === 1 ? "" : "s"} ready` : "";
 			setMode(ctx, "plan", `plan${drafted}`);
 		} else {
 			setMode(ctx, "plan", undefined);
 		}
 
 		// Progress widget below the editor while executing
-		if (executionMode && todoItems.length > 0) {
+		if (session.executionMode && session.todoItems.length > 0) {
 			ctx.ui.setWidget("plan-todos", (_tui, theme) => ({
 				invalidate() {},
 				render(width: number) {
-					const total = todoItems.length;
-					const doneCount = todoItems.filter((t) => t.completed).length;
-					const current = todoItems.find((t) => !t.completed);
+					const total = session.todoItems.length;
+					const doneCount = session.todoItems.filter((t) => t.completed).length;
+					const current = session.todoItems.find((t) => !t.completed);
 					const lines = [`${theme.fg("accent", theme.bold(`Plan ${doneCount}/${total}`))}  ${theme.fg("dim", "/todos")}`];
-					for (const item of todoItems) lines.push(formatStep(item, theme, current));
-					if (planVerify) lines.push(theme.fg("dim", `Verify: ${planVerify}`));
+					for (const item of session.todoItems) lines.push(formatStep(item, theme, current));
+					if (session.planVerify) lines.push(theme.fg("dim", `Verify: ${session.planVerify}`));
 					return lines.map((line) => truncateToWidth(line, width));
 				},
 			}));
@@ -236,34 +238,34 @@ export function installPlan(pi: ExtensionAPI): void {
 	}
 
 	function enablePlanModeTools(): void {
-		if (toolsBeforePlanMode === undefined) {
-			toolsBeforePlanMode = pi.getActiveTools();
+		if (session.toolsBeforePlanMode === undefined) {
+			session.toolsBeforePlanMode = pi.getActiveTools();
 		}
-		pi.setActiveTools(uniqueToolNames(toolsBeforePlanMode.filter((name) => !PLAN_MODE_DISABLED_TOOLS.has(name))));
+		pi.setActiveTools(uniqueToolNames(session.toolsBeforePlanMode.filter((name) => !PLAN_MODE_DISABLED_TOOLS.has(name))));
 	}
 
 	function restoreNormalModeTools(): void {
-		if (toolsBeforePlanMode !== undefined) {
-			pi.setActiveTools(toolsBeforePlanMode);
-			toolsBeforePlanMode = undefined;
+		if (session.toolsBeforePlanMode !== undefined) {
+			pi.setActiveTools(session.toolsBeforePlanMode);
+			session.toolsBeforePlanMode = undefined;
 		}
 	}
 
 	function persistState(): void {
 		pi.appendEntry("plan-mode", {
-			enabled: planModeEnabled,
-			todos: todoItems,
-			executing: executionMode,
-			verify: planVerify,
-			toolsBeforePlanMode,
+			enabled: session.planModeEnabled,
+			todos: session.todoItems,
+			executing: session.executionMode,
+			verify: session.planVerify,
+			toolsBeforePlanMode: session.toolsBeforePlanMode,
 		} satisfies PlanModeState);
 	}
 
 	function enablePlanMode(ctx: ExtensionContext, source?: string): void {
-		planModeEnabled = true;
-		executionMode = false;
-		todoItems = [];
-		planVerify = undefined;
+		session.planModeEnabled = true;
+		session.executionMode = false;
+		session.todoItems = [];
+		session.planVerify = undefined;
 		enablePlanModeTools();
 		ctx.ui.notify(
 			source
@@ -276,10 +278,10 @@ export function installPlan(pi: ExtensionAPI): void {
 	}
 
 	function disablePlanMode(ctx: ExtensionContext, reason = "Plan mode disabled. Full access restored."): void {
-		planModeEnabled = false;
-		executionMode = false;
-		todoItems = [];
-		planVerify = undefined;
+		session.planModeEnabled = false;
+		session.executionMode = false;
+		session.todoItems = [];
+		session.planVerify = undefined;
 		restoreNormalModeTools();
 		ctx.ui.notify(reason, "info");
 		updateStatus(ctx);
@@ -287,7 +289,7 @@ export function installPlan(pi: ExtensionAPI): void {
 	}
 
 	function togglePlanMode(ctx: ExtensionContext): void {
-		if (planModeEnabled) {
+		if (session.planModeEnabled) {
 			disablePlanMode(ctx);
 		} else {
 			enablePlanMode(ctx);
@@ -300,12 +302,12 @@ export function installPlan(pi: ExtensionAPI): void {
 			const container = new Container();
 			container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
 			container.addChild(
-				new Text(theme.fg("accent", theme.bold(`Plan ready · ${todoItems.length} steps`)), 1, 0),
+				new Text(theme.fg("accent", theme.bold(`Plan ready · ${session.todoItems.length} steps`)), 1, 0),
 			);
 			container.addChild(
-				new Text(todoItems.map((t) => theme.fg("muted", ` ${t.step}. ${t.text}`)).join("\n"), 1, 0),
+				new Text(session.todoItems.map((t) => theme.fg("muted", ` ${t.step}. ${t.text}`)).join("\n"), 1, 0),
 			);
-			if (planVerify) container.addChild(new Text(theme.fg("dim", ` Verify: ${planVerify}`), 1, 0));
+			if (session.planVerify) container.addChild(new Text(theme.fg("dim", ` Verify: ${session.planVerify}`), 1, 0));
 
 			const items: SelectItem[] = [
 				{ value: "execute", label: "Execute the plan", description: "Restore full tools and track step progress" },
@@ -343,13 +345,13 @@ export function installPlan(pi: ExtensionAPI): void {
 		return openPanel(ctx, {
 			title: "Plan",
 			summary: () => {
-				const doneCount = todoItems.filter((t) => t.completed).length;
-				const phase = executionMode ? "executing" : planModeEnabled ? "draft" : "done";
-				return `${doneCount}/${todoItems.length} steps · ${phase}`;
+				const doneCount = session.todoItems.filter((t) => t.completed).length;
+				const phase = session.executionMode ? "executing" : session.planModeEnabled ? "draft" : "done";
+				return `${doneCount}/${session.todoItems.length} steps · ${phase}`;
 			},
 			items: () => {
-				const current = todoItems.find((t) => !t.completed);
-				return todoItems.map((item) => ({
+				const current = session.todoItems.find((t) => !t.completed);
+				return session.todoItems.map((item) => ({
 					id: String(item.step),
 					label: `${item.step}. ${item.text}`,
 					symbol: item.completed ? SYMBOL.ok : item === current ? SYMBOL.active : SYMBOL.idle,
@@ -358,25 +360,25 @@ export function installPlan(pi: ExtensionAPI): void {
 				}));
 			},
 			detail: (row) => {
-				const item = todoItems.find((t) => String(t.step) === row.id)!;
+				const item = session.todoItems.find((t) => String(t.step) === row.id)!;
 				return {
-					title: `Step ${item.step} of ${todoItems.length}`,
+					title: `Step ${item.step} of ${session.todoItems.length}`,
 					subtitle: item.completed ? "Done." : "Not done yet.",
 					subtitleTone: item.completed ? "success" : "muted",
 					fields: [
 						{ label: "step", value: item.text },
-						{ label: "plan", value: executionMode ? "executing" : planModeEnabled ? "draft, read-only" : "finished" },
-						...(planVerify ? [{ label: "verify", value: planVerify }] : []),
+						{ label: "plan", value: session.executionMode ? "executing" : session.planModeEnabled ? "draft, read-only" : "finished" },
+						...(session.planVerify ? [{ label: "verify", value: session.planVerify }] : []),
 					],
 				};
 			},
 			actions: [
 				{
 					key: "d",
-					label: (row) => (todoItems.find((t) => String(t.step) === row?.id)?.completed ? "Mark not done" : "Mark done"),
-					when: (row) => !!row && executionMode,
+					label: (row) => (session.todoItems.find((t) => String(t.step) === row?.id)?.completed ? "Mark not done" : "Mark done"),
+					when: (row) => !!row && session.executionMode,
 					run: (row, panel) => {
-						const item = todoItems.find((t) => String(t.step) === row!.id)!;
+						const item = session.todoItems.find((t) => String(t.step) === row!.id)!;
 						item.completed = !item.completed;
 						persistState();
 						updateStatus(ctx);
@@ -401,8 +403,8 @@ export function installPlan(pi: ExtensionAPI): void {
 		getArgumentCompletions: completer(ON_OFF("plan mode")),
 		handler: async (args, ctx) => {
 			const word = args.trim().toLowerCase();
-			if (word === "on") { if (!planModeEnabled) enablePlanMode(ctx); else ctx.ui.notify("Plan mode is already on.", "info"); return; }
-			if (word === "off") { if (planModeEnabled) disablePlanMode(ctx); else ctx.ui.notify("Plan mode is already off.", "info"); return; }
+			if (word === "on") { if (!session.planModeEnabled) enablePlanMode(ctx); else ctx.ui.notify("Plan mode is already on.", "info"); return; }
+			if (word === "off") { if (session.planModeEnabled) disablePlanMode(ctx); else ctx.ui.notify("Plan mode is already off.", "info"); return; }
 			if (word) { ctx.ui.notify("Usage: /plan [on|off]. /plan alone toggles.", "warning"); return; }
 			togglePlanMode(ctx);
 		},
@@ -411,12 +413,12 @@ export function installPlan(pi: ExtensionAPI): void {
 	pi.registerCommand("todos", {
 		description: brand("plan steps: panel with progress and done toggles"),
 		handler: async (_args, ctx) => {
-			if (todoItems.length === 0) {
+			if (session.todoItems.length === 0) {
 				ctx.ui.notify("No plan steps. Create a plan first with /plan", "info");
 				return;
 			}
 			if (!ctx.hasUI) {
-				const list = todoItems.map((item) => `${item.step}. ${item.completed ? "✓" : "○"} ${item.text}`).join("\n");
+				const list = session.todoItems.map((item) => `${item.step}. ${item.completed ? "✓" : "○"} ${item.text}`).join("\n");
 				ctx.ui.notify(`Plan:\n${list}`, "info");
 				return;
 			}
@@ -442,7 +444,7 @@ export function installPlan(pi: ExtensionAPI): void {
 	// In plan mode, block writes defensively (even if another extension
 	// re-adds them) and restrict bash to the read-only allowlist.
 	pi.on("tool_call", async (event) => {
-		if (!planModeEnabled) return;
+		if (!session.planModeEnabled) return;
 
 		if (PLAN_MODE_DISABLED_TOOLS.has(event.toolName)) {
 			return {
@@ -473,9 +475,9 @@ export function installPlan(pi: ExtensionAPI): void {
 		return {
 			messages: messages.filter((m) => {
 				const msg = m as AgentMessage & { customType?: string };
-				if (msg.customType === PLAN_INSTRUCTION_TYPE) return planModeEnabled;
-				if (msg.customType === "plan-execution-context") return executionMode;
-				if (msg.customType === "plan-mode-execute") return executionMode;
+				if (msg.customType === PLAN_INSTRUCTION_TYPE) return session.planModeEnabled;
+				if (msg.customType === "plan-execution-context") return session.executionMode;
+				if (msg.customType === "plan-mode-execute") return session.executionMode;
 				// Only extension-owned, typed messages are mode instructions. A
 				// user may quote any marker while reporting a bug or correcting us.
 				return true;
@@ -487,15 +489,14 @@ export function installPlan(pi: ExtensionAPI): void {
 	// The last copy of an instruction already in the session; an identical one is not sent again.
 	const lastInstruction = (ctx: ExtensionContext | undefined, customType: string): unknown => {
 		const branch = (ctx?.sessionManager?.getBranch?.() ?? []) as { type?: string; customType?: string; content?: unknown }[];
-		for (let i = branch.length - 1; i >= 0; i--) {
-			const entry = branch[i]!;
+		for (const entry of [...branch].reverse()) {
 			if (entry.type === "custom_message" && entry.customType === customType) return entry.content;
 		}
 		return undefined;
 	};
 
 	pi.on("before_agent_start", async (_event, ctx) => {
-		if (planModeEnabled) {
+		if (session.planModeEnabled) {
 			if (lastInstruction(ctx, PLAN_INSTRUCTION_TYPE) === PLAN_MODE_PROMPT) return;
 			return {
 				message: {
@@ -506,8 +507,8 @@ export function installPlan(pi: ExtensionAPI): void {
 			};
 		}
 
-		if (executionMode && todoItems.length > 0) {
-			const content = executionContextPrompt(todoItems, planVerify);
+		if (session.executionMode && session.todoItems.length > 0) {
+			const content = executionContextPrompt(session.todoItems, session.planVerify);
 			if (lastInstruction(ctx, "plan-execution-context") === content) return;
 			return {
 				message: {
@@ -521,11 +522,11 @@ export function installPlan(pi: ExtensionAPI): void {
 
 	// Track progress after each turn
 	pi.on("turn_end", async (event, ctx) => {
-		if (!executionMode || todoItems.length === 0) return;
+		if (!session.executionMode || session.todoItems.length === 0) return;
 		if (!isAssistantMessage(event.message)) return;
 
 		const text = getTextContent(event.message);
-		if (markCompletedSteps(text, todoItems) > 0) {
+		if (markCompletedSteps(text, session.todoItems) > 0) {
 			updateStatus(ctx);
 		}
 		persistState();
@@ -534,23 +535,23 @@ export function installPlan(pi: ExtensionAPI): void {
 	// Handle plan completion and plan mode UI
 	pi.on("agent_end", async (event, ctx) => {
 		// Check if execution is complete
-		if (executionMode && todoItems.length > 0) {
-			if (todoItems.every((t) => t.completed)) {
+		if (session.executionMode && session.todoItems.length > 0) {
+			if (session.todoItems.every((t) => t.completed)) {
 				// Display-only record; kept out of the LLM context on purpose.
 				pi.appendEntry("plan-complete", {
-					steps: todoItems,
-					verify: planVerify,
+					steps: session.todoItems,
+					verify: session.planVerify,
 				} satisfies PlanListDetails);
-				executionMode = false;
-				todoItems = [];
-				planVerify = undefined;
+				session.executionMode = false;
+				session.todoItems = [];
+				session.planVerify = undefined;
 				updateStatus(ctx);
 				persistState(); // Save cleared state so resume doesn't restore old execution mode
 			}
 			return;
 		}
 
-		if (!planModeEnabled || !ctx.hasUI) return;
+		if (!session.planModeEnabled || !ctx.hasUI) return;
 
 		// Extract the plan from the last assistant message
 		const lastAssistant = [...event.messages].reverse().find(isAssistantMessage);
@@ -558,22 +559,22 @@ export function installPlan(pi: ExtensionAPI): void {
 			const text = getTextContent(lastAssistant);
 			const extracted = extractTodoItems(text);
 			if (extracted.length > 0) {
-				todoItems = extracted;
-				planVerify = extractVerification(text);
+				session.todoItems = extracted;
+				session.planVerify = extractVerification(text);
 			}
 		}
 
-		if (todoItems.length === 0) return;
+		if (session.todoItems.length === 0) return;
 		updateStatus(ctx);
 		persistState();
 
 		const choice = await planReviewDialog(ctx);
 
 		if (choice === "execute") {
-			const details: PlanListDetails = { steps: todoItems, verify: planVerify };
+			const details: PlanListDetails = { steps: session.todoItems, verify: session.planVerify };
 
-			planModeEnabled = false;
-			executionMode = true;
+			session.planModeEnabled = false;
+			session.executionMode = true;
 			restoreNormalModeTools();
 			updateStatus(ctx);
 			persistState();
@@ -584,7 +585,7 @@ export function installPlan(pi: ExtensionAPI): void {
 			pi.sendMessage(
 				{
 					customType: "plan-mode-execute",
-					content: executionKickoffPrompt(todoItems, planVerify),
+					content: executionKickoffPrompt(session.todoItems, session.planVerify),
 					display: true,
 					details,
 				},
@@ -593,7 +594,7 @@ export function installPlan(pi: ExtensionAPI): void {
 		} else if (choice === "refine") {
 			const refinement = await ctx.ui.editor("Refine the plan:", "");
 			if (refinement?.trim()) {
-				pi.appendEntry("plan-todo-list", { steps: todoItems, verify: planVerify } satisfies PlanListDetails);
+				pi.appendEntry("plan-todo-list", { steps: session.todoItems, verify: session.planVerify } satisfies PlanListDetails);
 				pi.sendUserMessage(refinement.trim(), { deliverAs: "followUp" });
 			}
 		} else if (choice === "discard") {
@@ -610,7 +611,7 @@ export function installPlan(pi: ExtensionAPI): void {
 	// Restore state on session start/resume
 	pi.on("session_start", async (_event, ctx) => {
 		if (pi.getFlag("plan") === true) {
-			planModeEnabled = true;
+			session.planModeEnabled = true;
 		}
 
 		// getBranch() scopes restore to this branch, never a fork's copy.
@@ -623,40 +624,30 @@ export function installPlan(pi: ExtensionAPI): void {
 
 		if (planModeEntry?.type === "custom" && planModeEntry.data) {
 			const data = planModeEntry.data as PlanModeState;
-			planModeEnabled = data.enabled ?? planModeEnabled;
-			todoItems = data.todos ?? todoItems;
-			executionMode = data.executing ?? executionMode;
-			planVerify = data.verify ?? planVerify;
-			toolsBeforePlanMode = data.toolsBeforePlanMode ?? toolsBeforePlanMode;
+			session.planModeEnabled = data.enabled ?? session.planModeEnabled;
+			session.todoItems = data.todos ?? session.todoItems;
+			session.executionMode = data.executing ?? session.executionMode;
+			session.planVerify = data.verify ?? session.planVerify;
+			session.toolsBeforePlanMode = data.toolsBeforePlanMode ?? session.toolsBeforePlanMode;
 		}
 
 		// On resume: re-scan messages to rebuild completion state
 		// Only scan messages AFTER the last "plan-mode-execute" to avoid picking up [DONE:n] from previous plans
 		const isResume = planModeEntry !== undefined;
-		if (isResume && executionMode && todoItems.length > 0) {
+		if (isResume && session.executionMode && session.todoItems.length > 0) {
 			// Find the index of the last plan-mode-execute entry (marks when current execution started)
-			let executeIndex = -1;
-			for (let i = entries.length - 1; i >= 0; i--) {
-				const entry = entries[i];
-				if (entry.type === "custom_message" && entry.customType === "plan-mode-execute") {
-					executeIndex = i;
-					break;
-				}
-			}
+			const executeIndex = Array.from(entries.keys()).reverse()
+				.find((i) => entries[i]!.type === "custom_message" && entries[i]!.customType === "plan-mode-execute") ?? -1;
 
 			// Only scan messages after the execute marker
-			const messages: AssistantMessage[] = [];
-			for (let i = executeIndex + 1; i < entries.length; i++) {
-				const entry = entries[i];
-				if (entry.type === "message" && isAssistantMessage(entry.message as AgentMessage)) {
-					messages.push(entry.message as AssistantMessage);
-				}
-			}
+			const messages = entries
+				.slice(executeIndex + 1)
+				.flatMap((entry) => entry.type === "message" && isAssistantMessage(entry.message as AgentMessage) ? [entry.message as AssistantMessage] : []);
 			const allText = messages.map(getTextContent).join("\n");
-			markCompletedSteps(allText, todoItems);
+			markCompletedSteps(allText, session.todoItems);
 		}
 
-		if (planModeEnabled) {
+		if (session.planModeEnabled) {
 			enablePlanModeTools();
 		}
 		updateStatus(ctx);

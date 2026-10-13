@@ -19,7 +19,7 @@ function harness({ flag = false, savedEntries = [], customResult = 'execute' } =
   const messages = [];
   const entries = [...savedEntries];
   const events = new EventEmitter();
-  let tools = ['read', 'bash', 'edit', 'write', 'ask_user', 'custom_read'];
+  const toolset = { names: ['read', 'bash', 'edit', 'write', 'ask_user', 'custom_read'] };
 
   const pi = {
     events,
@@ -30,8 +30,8 @@ function harness({ flag = false, savedEntries = [], customResult = 'execute' } =
     registerMessageRenderer: (customType, renderer) => renderers.set(customType, renderer),
     registerEntryRenderer: (customType, renderer) => renderers.set(customType, renderer),
     on: (name, handler) => handlers.set(name, [...(handlers.get(name) ?? []), handler]),
-    getActiveTools: () => [...tools],
-    setActiveTools: (value) => { tools = [...value]; },
+    getActiveTools: () => [...toolset.names],
+    setActiveTools: (value) => { toolset.names = [...value]; },
     appendEntry: (customType, data) => entries.push({ type: 'custom', customType, data }),
     sendMessage: (message, options) => messages.push({ message, options }),
     sendUserMessage: (content, options) => messages.push({ user: content, options }),
@@ -64,7 +64,7 @@ function harness({ flag = false, savedEntries = [], customResult = 'execute' } =
     renderers,
     statuses,
     widgets,
-    activeTools: () => [...tools],
+    activeTools: () => [...toolset.names],
     run: (name, args = '') => commands.get(name).handler(args, ctx),
     renderWidget(key, width = 80) {
       const value = widgets.get(key);
@@ -72,12 +72,9 @@ function harness({ flag = false, savedEntries = [], customResult = 'execute' } =
       return value;
     },
     async emit(name, event = {}) {
-      let result;
-      for (const handler of handlers.get(name) ?? []) {
-        const next = await handler(event, ctx);
-        if (next !== undefined) result = next;
-      }
-      return result;
+      const results = [];
+      for (const handler of handlers.get(name) ?? []) results.push(await handler(event, ctx));
+      return results.filter((next) => next !== undefined).at(-1);
     },
   };
 }
