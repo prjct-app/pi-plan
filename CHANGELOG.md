@@ -1,3 +1,5 @@
+## [0.3.6](https://github.com/prjct-app/pi-plan/compare/v0.3.5...v0.3.6) (2026-10-13)
+
 ## [0.3.5](https://github.com/prjct-app/pi-plan/compare/v0.3.4...v0.3.5) (2026-10-06)
 
 ### Bug Fixes
