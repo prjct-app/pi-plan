@@ -1,3 +1,9 @@
+## [0.3.7](https://github.com/prjct-app/pi-plan/compare/v0.3.6...v0.3.7) (2026-10-13)
+
+### Bug Fixes
+
+* immutable plan state; completed steps no longer rewrite saved entries ([#20](https://github.com/prjct-app/pi-plan/issues/20)) ([c5ea050](https://github.com/prjct-app/pi-plan/commit/c5ea0502a118acb2d3a22ab1a563dcffd6e7ce13))
+
 ## [0.3.6](https://github.com/prjct-app/pi-plan/compare/v0.3.5...v0.3.6) (2026-10-13)
 
 ## [0.3.5](https://github.com/prjct-app/pi-plan/compare/v0.3.4...v0.3.5) (2026-10-06)
