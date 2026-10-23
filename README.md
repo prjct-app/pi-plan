@@ -14,7 +14,7 @@ Plan before editing in PI Agent with read-only tool restrictions, an approval st
 
 ## Install
 
-Requires Pi installed separately and Node.js **22.19 or later**. Compatibility is tested with **Pi 0.85.1**; newer versions are not yet verified. This is an independent community package.
+Requires Pi installed separately and Node.js **22.23.4 or later**. Compatibility is tested with **Pi 0.85.1**; newer versions are not yet verified. This is an independent community package.
 
 Install with Pi's package manager:
 
