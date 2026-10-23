@@ -5,7 +5,7 @@
 - npm name: `@prjct.app/pi-plan`.
 - Initial version: `0.1.0`.
 - Source repository: [prjct-app/pi-plan](https://github.com/prjct-app/pi-plan).
-- Tested host: Pi `0.85.1`; Node.js `22.19+`.
+- Tested host: Pi `0.85.1`; Node.js `22.23.4+`.
 
 The npm name and repository name may differ. Repository URLs remain unchanged. Existing runtime command names, event names, persisted entry types, and settings keys are unchanged by the package rename.
 
